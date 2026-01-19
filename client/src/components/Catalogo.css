@@ -1,0 +1,504 @@
+/* CLASE PARA BLOQUEAR SCROLL CUANDO EL MODAL ESTÁ ABIERTO */
+body.modal-abierto {
+  overflow: hidden !important;
+  height: 100vh;
+  touch-action: none; /* Bloquea gestos táctiles en el fondo */
+  overscroll-behavior: none; /* Evita el efecto rebote en iPhone */
+}
+
+/* --- CONTENEDOR PRINCIPAL --- */
+.catalogo-container {
+  min-height: 100vh;
+  background: radial-gradient(circle at top center, #1a1a1a 0%, #000000 80%);
+  color: white;
+  padding-bottom: 50px;
+  overflow-x: hidden; /* Evita scroll horizontal en la página entera */
+}
+
+/* --- BUSCADOR --- */
+.buscador-container {
+  padding: 10px 25px 10px 25px; 
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+.icono-lupa {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+  opacity: 0.5;
+  color: #999;
+}
+
+.input-buscador {
+  width: 100%;
+  background-color: #222;
+  border: 1px solid #333;
+  padding: 12px 15px 12px 45px; /* 45px a la izq para dejar lugar a la lupa */
+  border-radius: 30px;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.input-buscador:focus {
+  background-color: #333;
+  border-color: #E50914; /* Rojo al escribir */
+  box-shadow: 0 4px 15px rgba(229, 9, 20, 0.3);
+}
+
+.input-buscador::placeholder {
+  color: #777;
+}
+
+/* --- SECCIÓN PLATAFORMAS --- */
+.seccion-streaming {
+  padding: 20px 0 0 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+}
+
+.titulo-seccion {
+  font-size: 1.1rem;
+  margin-bottom: 5px;
+  font-weight: 700;
+  color: #e5e5e5;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding-left: 25px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.plataformas-scroll {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden; /* Importante */
+  /* AUMENTAMOS PADDING VERTICAL PARA QUE LA SOMBRA NO SE CORTE */
+  padding: 25px 25px 35px 25px; 
+  scrollbar-width: none;
+}
+.plataformas-scroll::-webkit-scrollbar { display: none; }
+
+/* BOTÓN BASE */
+.plataforma-btn {
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  background-color: #222; /* Fondo neutro para el logo */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: 2px solid #333; /* Borde sutil por defecto */
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+}
+
+/* IMAGEN DEL LOGO (Arreglo de tamaño) */
+.plataforma-btn img {
+  width: 65%; /* Dejamos espacio para que el logo respire */
+  height: 65%;
+  object-fit: contain; /* Para que el logo entre entero y no se corte */
+  pointer-events: none;
+}
+
+/* Ajuste específico para Amazon (que es rectangular) */
+.btn-amazon img { width: 80% !important; } 
+
+/* --- EFECTOS HOVER (SOMBRAS DE COLORES) --- */
+/* Al pasar el mouse: sube, se agranda y brilla con SU color */
+
+/* Netflix (Rojo) */
+.btn-netflix:hover, .btn-netflix.activa { 
+  border-color: #E50914; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(229, 9, 20, 0.6); 
+}
+/* --- ARREGLOS ESPECÍFICOS DE LOGOS --- */
+.btn-amazon img {
+  border-radius: 15px !important; 
+  width: 75% !important; 
+  height: 75% !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+/* Disney (Azul) */
+.btn-disney:hover, .btn-disney.activa { 
+  border-color: #113CCF; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(17, 60, 207, 0.6); 
+}
+
+/* Amazon (Celeste) */
+.btn-amazon:hover, .btn-amazon.activa { 
+  border-color: #00A8E1; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(0, 168, 225, 0.6); 
+}
+
+/* Apple (Blanco/Gris) */
+.btn-apple:hover, .btn-apple.activa { 
+  border-color: #fff; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(255, 255, 255, 0.4); 
+}
+
+/* HBO (Violeta) */
+.btn-hbo:hover, .btn-hbo.activa { 
+  border-color: #5d1291; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(93, 18, 145, 0.6); 
+}
+
+/* Paramount (Azul oscuro) */
+.btn-paramount:hover, .btn-paramount.activa { 
+  border-color: #0066cc; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(0, 102, 204, 0.6); 
+}
+
+/* Crunchyroll (Naranja) */
+.btn-crunchyroll:hover, .btn-crunchyroll.activa { 
+  border-color: #f47521; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(244, 117, 33, 0.6); 
+}
+
+/* Cine (Dorado) */
+.btn-cine:hover, .btn-cine.activa { 
+  border-color: #ffcc00; 
+  transform: translateY(-5px) scale(1.15); 
+  box-shadow: 0 10px 25px rgba(255, 204, 0, 0.5); 
+}
+
+/* Opacar los no activos cuando hay uno seleccionado */
+.plataformas-scroll:has(.activa) .plataforma-btn:not(.activa):not(:hover) {
+  opacity: 0.4;
+  filter: grayscale(100%);
+  transform: scale(0.9);
+}
+
+/* --- FILAS --- */
+.filas-generos {
+  margin-top: 0;
+  min-height: 60vh;
+}
+
+/* --- MODAL (ARREGLO DE BANNER) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center; /* Centrado para mejor vista */
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+.modal-content {
+  background: #141414;
+  width: 100%;
+  max-width: 600px;
+  height: 100%; /* Ocupa altura completa en móvil para inmersión */
+  max-height: 100%;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 0 50px rgba(0,0,0,1);
+  animation: slideUp 0.4s ease-out forwards;
+  
+  /* Arreglo scroll móvil */
+  -webkit-overflow-scrolling: touch; 
+}
+
+/* ARREGLO DEL BANNER / VIDEO */
+.video-area {
+  width: 100%;
+  /* Usamos aspect-ratio para mantener formato cine (16:9) */
+  aspect-ratio: 16 / 9; 
+  position: relative;
+  background: #000;
+  border-bottom: 1px solid #333;
+}
+
+/* Ajuste de imagen de fondo para que no se corte la cabeza */
+.video-area div[style*="background-image"] {
+  background-position: center top !important; /* Prioriza la parte superior/centro */
+  background-size: cover !important;
+}
+
+/* Botón cerrar más visible */
+.btn-cerrar {
+  position: absolute;
+  top: 15px; right: 15px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  border: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.btn-cerrar:hover { background: rgba(255,255,255,0.2); }
+
+.video-wrapper, iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ZONA INFO */
+.info-container {
+  padding: 25px;
+  background: linear-gradient(to bottom, #141414 0%, #000 100%);
+}
+
+.titulo-principal {
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin: 0 0 15px 0;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.meta-row {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.hd-badge {
+  border: 1px solid #aaa;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.sinopsis {
+  color: #ccc;
+  line-height: 1.6;
+  font-size: 1rem;
+  margin: 25px 0;
+}
+
+/* BOTONES DE ACCIÓN (PLAY) */
+.btn-accion-full {
+  width: 100%;
+  padding: 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  border: none;
+  margin-bottom: 10px;
+  transition: transform 0.1s;
+}
+.btn-accion-full:active { transform: scale(0.98); }
+
+.blanco { background-color: white; color: black; }
+.blanco:hover { background-color: #ddd; }
+
+.gris { background-color: rgba(109, 109, 110, 0.7); color: white; }
+.gris:hover { background-color: rgba(109, 109, 110, 0.4); }
+
+.acciones-row {
+  display: flex;
+  justify-content: space-around;
+  margin: 20px 0;
+}
+.accion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: #ccc;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.accion-icon { font-size: 1.5rem; }
+
+/* --- EPISODIOS --- */
+.tabs-container {
+  margin-top: 20px;
+  border-top: 1px solid #333;
+  padding-top: 20px;
+}
+
+.cabecera-episodios {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tab-header {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.selector-temporada {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+/* ITEM EPISODIO CON HOVER */
+.episodio-item {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid #222;
+}
+
+/* EFECTO HOVER EN EPISODIO */
+.episodio-item:hover {
+  background-color: #2a2a2a; /* Se ilumina un poco */
+  transform: translateX(5px); /* Se mueve un poquito a la derecha */
+}
+
+.episodio-img-wrapper {
+  width: 130px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.episodio-img {
+  width: 100%;
+  border-radius: 6px;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+
+.preview-play {
+  position: absolute;
+  top: 40%; /* <--- CAMBIO: Antes era 50%. Al bajar el número, sube el botón. */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 35px; /* Lo hice un pelín más grande para que sea más fácil de tocar */
+  height: 35px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  opacity: 0.9;
+  transition: transform 0.2s;
+}
+
+/* Efecto extra: que crezca un poco al pasar el mouse */
+.episodio-item:hover .preview-play {
+  transform: translate(-50%, -50%) scale(1.2);
+  background: rgba(229, 9, 20, 0.8); /* Rojo Netflix al hacer hover */
+  border-color: transparent;
+}
+
+.episodio-info h4 { margin: 0 0 5px 0; font-size: 1rem; color: #eee; }
+.episodio-info span { font-size: 0.8rem; color: #888; font-weight: bold; }
+
+/* REPRODUCTOR FULLSCREEN */
+.reproductor-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background-color: black;
+  z-index: 3000;
+  animation: fadeIn 0.3s ease;
+}
+
+.btn-salir-cine {
+  position: absolute;
+  top: 40px; left: 30px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 10px 20px;
+  border-radius: 30px;
+  cursor: pointer;
+  z-index: 3001;
+  font-weight: bold;
+  backdrop-filter: blur(5px);
+  transition: all 0.2s;
+}
+.btn-salir-cine:hover { background: white; color: black; }
+
+/* ANIMACIONES */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* RESPONSIVE: En PC el modal no ocupa todo */
+@media (min-width: 768px) {
+  .modal-content {
+    height: 90vh;
+    border-radius: 15px;
+  }
+}
+
+/* ========================================================= */
+/* === VISTA MÓVIL (IPHONE/ANDROID) - EL ARREGLO CRÍTICO === */
+/* ========================================================= */
+@media (max-width: 767px) {
+  
+  /* 1. Botones de Plataformas más chicos */
+  .plataforma-btn {
+    width: 55px;
+    height: 55px;
+  }
+  .plataformas-scroll {
+    gap: 15px;
+    padding: 15px 20px 30px 20px; 
+  }
+
+  /* 2. FORZAR IMÁGENES PEQUEÑAS PARA QUE ENTREN 3 */
+  /* El selector .filas-generos img ataca directamente a las portadas */
+  .filas-generos img {
+    /* ~110px es el ancho ideal para iPhone 13 (390px ancho) */
+    width: 110px !important; 
+    min-width: 110px !important;
+    height: auto !important; /* Mantiene proporción */
+    margin-right: 8px; /* Separación pequeña */
+  }
+
+  /* Ajuste de títulos */
+  .titulo-seccion { font-size: 1rem; padding-left: 20px; }
+  h2 { font-size: 1.1rem !important; padding-left: 15px !important; }
+}

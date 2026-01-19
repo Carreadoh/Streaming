@@ -1,0 +1,27 @@
+/* --- RESET GLOBAL --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Aplicamos al HTML y al BODY para asegurar el bloqueo */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* ESTO ES LA CLAVE: Prohíbe el scroll lateral de la página */
+  background-color: #141414;
+  color: white;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Evitamos que las imágenes rompan el ancho */
+img {
+  max-width: 100%;
+  display: block;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
