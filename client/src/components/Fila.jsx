@@ -1,5 +1,4 @@
 import React, { useRef } from 'react';
-import './Fila.css'; // Crearemos este CSS en el paso 2
 
 const Fila = ({ titulo, peliculas, onClickPelicula }) => {
   const filaRef = useRef(null);
