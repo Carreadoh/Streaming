@@ -245,7 +245,7 @@ const Catalogo = () => {
         }}>
           {/* LOGO */}
           <div style={{textAlign: 'center', marginBottom: '30px'}}>
-             <img src="/logo.png" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
+             <img src="/logotipo.png" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
           </div>
 
           <h2 style={{color: 'white', marginBottom: '28px', fontSize: '32px', fontWeight: 'bold'}}>Iniciar Sesión</h2>
