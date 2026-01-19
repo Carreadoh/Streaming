@@ -217,11 +217,15 @@ const Catalogo = () => {
     return (
       <div className="login-premium-bg">
         <div className="login-card">
-          <div style={{marginBottom: '20px'}}>
+          
+          {/* LOGO CENTRADO (FLEXBOX) */}
+          <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}>
              <img src="/logo.svg" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
           </div>
+          
           <h2 className="login-title">Bienvenido</h2>
           <p className="login-subtitle">Ingresa tus credenciales</p>
+          
           <form onSubmit={handleLogin}>
             <div className="input-group">
                 <input type="email" className="login-input" placeholder="Correo electrónico" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -232,7 +236,20 @@ const Catalogo = () => {
             {errorLogin && <p style={{color: '#ef4444', fontSize: '13px', margin:'10px 0'}}>{errorLogin}</p>}
             <button type="submit" className="btn-login-premium">Acceder</button>
           </form>
-          <div className="login-footer">¿Sin cuenta? <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{color: '#818cf8', textDecoration: 'none', fontWeight:'bold'}}>Suscríbete aquí</a></div>
+          
+          <div className="login-footer">
+            ¿Sin cuenta? 
+            <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{color: '#818cf8', textDecoration: 'none', fontWeight:'bold', marginLeft:'5px'}}>Suscríbete aquí</a>
+          </div>
+
+          {/* CRÉDITOS FOXAPPS */}
+          <div style={{marginTop: '40px', fontSize: '11px', color: '#666'}}>
+            Desarrollado por 
+            <a href="https://foxapps.vercel.app" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>
+              Foxapps
+            </a>
+          </div>
+
         </div>
       </div>
     );
@@ -244,12 +261,10 @@ const Catalogo = () => {
       
       {/* HEADER */}
       <header className="header-container">
-        {/* LOGO CENTRADO ABSOLUTO */}
         <div className="header-logo-wrapper">
             <img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} />
         </div>
         
-        {/* PERFIL A LA DERECHA */}
         <div className="profile-widget">
           <div className="profile-info">
              <span className="profile-name">Hola, {usuario.email.split('@')[0]}</span>
@@ -320,7 +335,7 @@ const Catalogo = () => {
             <div className="video-area">
               <button className="btn-cerrar" onClick={cerrarModal}>✕</button>
               {trailerKey ? (
-                /* IFRAME YOUTUBE - SIN CAPA ENCIMA PARA PODER PAUSAR */
+                /* IFRAME SIN CAPA PARA PODER PAUSAR EL TRAILER */
                 <iframe 
                   src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&loop=1&playlist=${trailerKey}`} 
                   title="Trailer" 
@@ -331,7 +346,6 @@ const Catalogo = () => {
               ) : (
                 <div style={{backgroundImage: `url(${item.imagen_fondo})`, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center top'}} onClick={() => setVerPeliculaCompleta(true)} />
               )}
-              {/* ¡¡¡ CAPA ELIMINADA !!!: Ya no hay 'video-overlay-click' bloqueando el trailer */}
             </div>
             
             <div className="info-container">
