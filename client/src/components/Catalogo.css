@@ -9,16 +9,16 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 /* --- FONDO NEÓN GAMING --- */
 .catalogo-container {
   min-height: 100vh;
-  background-color: #030305; /* Base casi negra */
+  background-color: var(--bg-dark); /* Usar la variable */
   
-  /* AQUÍ ESTÁ LA MAGIA DEL NEÓN: 3 Círculos de luz que se mezclan */
+  /* NEÓN: 3 Círculos de luz que se mezclan */
   background-image: 
     radial-gradient(circle at 0% 0%, rgba(124, 58, 237, 0.3) 0%, transparent 50%),
     radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.3) 0%, transparent 50%),
     radial-gradient(circle at 100% 0%, rgba(236, 72, 153, 0.2) 0%, transparent 40%),
     radial-gradient(circle at 50% 50%, rgba(30, 27, 75, 0.5) 0%, rgba(0,0,0,0) 70%);
 
-  background-attachment: fixed; /* El fondo se queda quieto al hacer scroll */
+  background-attachment: fixed;
   color: white;
   padding-bottom: 50px;
   overflow-x: hidden;
@@ -38,6 +38,7 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
   top: 0; left: 0; right: 0;
   z-index: 100;
   border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: background 0.3s;
 }
 
 .header-logo-wrapper {
@@ -56,14 +57,14 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 }
 .header-logo:hover { transform: scale(1.05); }
 
-/* --- PERFIL WIDGET (ARREGLO) --- */
+/* --- PERFIL WIDGET --- */
 .profile-widget {
   display: flex;
   align-items: center;
   gap: 12px;
   cursor: pointer;
   padding: 5px 10px;
-  height: 100%; /* Asegura altura para el hover */
+  height: 100%;
   position: relative;
 }
 
@@ -86,12 +87,12 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .profile-arrow { font-size: 10px; color: #aaa; margin-left: 5px; transition: transform 0.3s; }
 .profile-widget:hover .profile-arrow { transform: rotate(180deg); }
 
-/* MENU DESPLEGABLE (FIXED) */
+/* MENU DESPLEGABLE */
 .dropdown-menu {
   position: absolute;
-  top: 100%; /* Pega el menú justo debajo del widget */
+  top: 100%;
   right: 0;
-  margin-top: 5px; /* Pequeño margen */
+  margin-top: 5px;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 12px;
@@ -103,15 +104,10 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
   z-index: 101;
 }
 
-/* Pseudo-elemento invisible para puentear el espacio del hover */
 .profile-widget::after {
   content: '';
   position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  height: 20px; /* Altura del puente invisible */
-  background: transparent;
+  top: 100%; left: 0; width: 100%; height: 20px; background: transparent;
 }
 
 .profile-widget:hover .dropdown-menu { display: block; }
@@ -125,7 +121,7 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .menu-item.logout { color: #ef4444; }
 .menu-item.logout:hover { background-color: rgba(239, 68, 68, 0.1); }
 
-/* --- BARRA DE HERRAMIENTAS --- */
+/* --- TOOLBAR --- */
 .toolbar-container {
   margin-top: 80px;
   padding: 0 4%;
@@ -145,11 +141,11 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 }
 .plataformas-list::-webkit-scrollbar { display: none; }
 
-/* PLATAFORMAS REDONDAS Y GRANDES */
+/* PLATAFORMAS */
 .plat-btn {
-  width: 80px; /* Grande */
-  height: 80px; /* Grande */
-  border-radius: 50%; /* Redondo */
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
   background: #18181b;
   border: 2px solid #333;
   display: flex; justify-content: center; align-items: center;
@@ -160,16 +156,13 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 }
 
 .plat-btn img {
-  width: 70%; height: 70%;
+  width: 65%; height: 65%;
   object-fit: contain;
   filter: grayscale(100%);
   opacity: 0.7;
   transition: all 0.3s;
 }
 
-/* --- CORRECCIÓN DE ÍCONOS (NETFLIX Y AMAZON) --- */
-
-/* Forzar que NETFLIX ocupe todo el botón y se redondee */
 .plat-btn[title="Netflix"] img {
   width: 100% !important;
   height: 100% !important;
@@ -230,239 +223,147 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .search-inline { position: relative; width: 300px; flex-shrink: 0; }
 .search-input {
   width: 100%; background: #18181b; border: 1px solid #333;
-  padding: 12px 15px 12px 40px; border-radius: 30px; /* Redondeado */
+  padding: 12px 15px 12px 40px; border-radius: 30px;
   color: white; outline: none; font-size: 14px; transition: all 0.3s;
 }
 .search-input:focus { border-color: var(--primary); background: #202024; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #666; }
 
-.filas-generos { min-height: 60vh; padding: 0 2%; }
+/* --- ESTILOS PARA LAS FILAS DE PELÍCULAS (Fila.jsx) --- */
+.filas-generos { min-height: 60vh; }
 
-/* --- LOGIN FIXED (SIN HEADER NI SCROLL) --- */
-.login-premium-bg {
-  height: 100vh;
-  width: 100vw;
-  background-color: #0f0f12;
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+.fila-container {
+  margin-bottom: 30px;
+  padding: 0 4%; /* Alineado con el toolbar */
+}
+
+.titulo-fila {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+  color: #fff;
+}
+
+/* Contenedor de posters con scroll horizontal en Desktop */
+.fila-posters-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  position: fixed; /* Fijo para evitar scroll */
-  top: 0; left: 0;
-  z-index: 9999;
+  gap: 15px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: none; /* Firefox */
+}
+.fila-posters-container::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+/* Tarjeta de póster individual */
+.poster-card {
+  flex: 0 0 auto; /* No encoger ni crecer */
+  width: 160px;   /* Ancho fijo para desktop */
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
-.login-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 50px 40px;
-  border-radius: 24px;
+.poster-card:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.poster-card img {
   width: 100%;
-  max-width: 420px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  text-align: center;
+  height: 100%;
+  object-fit: cover;
+  aspect-ratio: 2 / 3; /* Proporción estándar de póster */
+  display: block;
 }
 
-.login-title {
-  font-size: 28px; font-weight: 800; margin-bottom: 10px;
-  background: linear-gradient(to right, #fff, #a5b4fc);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+/* --- LOGIN FIXED --- */
+.login-premium-bg {
+  height: 100vh; width: 100vw; background-color: #0f0f12;
+  background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+  display: flex; justify-content: center; align-items: center;
+  position: fixed; top: 0; left: 0; z-index: 9999; overflow: hidden;
 }
+.login-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); padding: 50px 40px; border-radius: 24px; width: 100%; max-width: 420px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; }
+.login-title { font-size: 28px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(to right, #fff, #a5b4fc); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
 .login-subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 30px; }
 .input-group { margin-bottom: 16px; position: relative; }
-.login-input {
-  width: 100%; background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 14px 16px; border-radius: 12px;
-  color: white; font-size: 15px; outline: none; transition: all 0.3s;
-}
+.login-input { width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); padding: 14px 16px; border-radius: 12px; color: white; font-size: 15px; outline: none; transition: all 0.3s; }
 .login-input:focus { border-color: #6366f1; background: rgba(0, 0, 0, 0.5); }
-.btn-login-premium {
-  width: 100%; padding: 14px; border-radius: 12px; border: none;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: white; font-weight: 700; font-size: 16px; cursor: pointer;
-  margin-top: 10px; transition: transform 0.2s, box-shadow 0.2s;
-}
+.btn-login-premium { width: 100%; padding: 14px; border-radius: 12px; border: none; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 10px; transition: transform 0.2s, box-shadow 0.2s; }
 .btn-login-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); }
 .login-footer { margin-top: 25px; font-size: 13px; color: #64748b; }
 
 /* --- MODAL Y REPRODUCTOR --- */
-.modal-overlay { 
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-  background: rgba(0,0,0,0.9); z-index: 2000; 
-  display: flex; justify-content: center; align-items: center; 
-}
-
-/* AQUÍ ESTÁ EL CAMBIO: MÁS CHICO */
-.modal-content { 
-  background: #141414; 
-  width: 95%; /* Margen en móviles */
-  max-width: 750px; /* Ancho máximo reducido (antes 900px) */
-  max-height: 85vh; /* Altura máxima reducida (antes 90vh o height fijo) */
-  border-radius: 16px; 
-  overflow-y: auto; 
-  position: relative; 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-}
-
-/* VIDEO (16:9) */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+.modal-content { background: #141414; width: 95%; max-width: 750px; max-height: 85vh; border-radius: 16px; overflow-y: auto; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
 .video-area { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
 .btn-cerrar { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.5); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; z-index: 10; }
 .video-wrapper, iframe { width: 100%; height: 100%; border: none; }
-
 .info-container { padding: 30px; background: linear-gradient(to top, #141414, transparent); }
 .titulo-principal { font-size: 2.2rem; font-weight: 800; margin-bottom: 10px; }
 .meta-row { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; font-size: 0.9rem; color: #aaa; }
 .hd-badge { border: 1px solid #aaa; padding: 0 5px; border-radius: 3px; font-size: 0.7rem; font-weight: bold; }
 .sinopsis { color: #ccc; line-height: 1.6; font-size: 1rem; margin: 25px 0; }
-
 .btn-accion-full { width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .blanco { background: white; color: black; }
 
-/* --- EPISODIOS (NUEVO ESTILO NETFLIX) --- */
-.tabs-container {
-  margin-top: 30px;
-  border-top: 1px solid #404040;
-  padding-top: 20px;
-}
-
-.cabecera-episodios {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.tab-header {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.selector-temporada {
-  background: #202020;
-  color: white;
-  border: 1px solid #404040;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 1rem;
-  cursor: pointer;
-  outline: none;
-}
-
-/* LISTA VERTICAL */
-.lista-episodios {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.episodio-item {
-  display: flex;
-  gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid #404040;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  align-items: center;
-}
-
-.episodio-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-/* THUMBNAIL */
-.episodio-img-wrapper {
-  width: 140px;
-  height: 80px;
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-  border-radius: 6px;
-}
-
-.episodio-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.episodio-item:hover .episodio-img {
-  transform: scale(1.05);
-}
-
-/* PLAY BUTTON */
-.preview-play {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 2px solid white;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 12px;
-  opacity: 0;
-  transition: all 0.2s;
-}
-
-.episodio-item:hover .preview-play {
-  opacity: 1;
-  background: rgba(229, 9, 20, 0.9);
-  border-color: transparent;
-  transform: translate(-50%, -50%) scale(1.1);
-}
-
-/* INFO TEXTO */
-.episodio-info {
-  flex: 1;
-  display: flex; flex-direction: column; justify-content: center;
-}
-
-.episodio-info h4 {
-  margin: 0 0 5px 0;
-  font-size: 1rem;
-  color: #fff;
-  font-weight: 700;
-}
-
-.episodio-info span {
-  font-size: 0.9rem;
-  color: #a3a3a3;
-  font-weight: 500;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.episodio-info p {
-  font-size: 0.85rem;
-  color: #d2d2d2;
-  margin: 0;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* REPRODUCTOR */
+/* --- EPISODIOS --- */
+.tabs-container { margin-top: 30px; border-top: 1px solid #404040; padding-top: 20px; }
+.cabecera-episodios { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.tab-header { font-size: 1.5rem; font-weight: 700; color: #fff; }
+.selector-temporada { background: #202020; color: white; border: 1px solid #404040; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 1rem; cursor: pointer; outline: none; }
+.lista-episodios { display: flex; flex-direction: column; gap: 0; }
+.episodio-item { display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid #404040; cursor: pointer; transition: background 0.2s ease; align-items: center; }
+.episodio-item:hover { background-color: rgba(255, 255, 255, 0.05); }
+.episodio-img-wrapper { width: 140px; height: 80px; flex-shrink: 0; position: relative; overflow: hidden; border-radius: 6px; }
+.episodio-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+.episodio-item:hover .episodio-img { transform: scale(1.05); }
+.preview-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; opacity: 0; transition: all 0.2s; }
+.episodio-item:hover .preview-play { opacity: 1; background: rgba(229, 9, 20, 0.9); border-color: transparent; transform: translate(-50%, -50%) scale(1.1); }
+.episodio-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.episodio-info h4 { margin: 0 0 5px 0; font-size: 1rem; color: #fff; font-weight: 700; }
+.episodio-info span { font-size: 0.9rem; color: #a3a3a3; font-weight: 500; margin-bottom: 8px; display: block; }
+.episodio-info p { font-size: 0.85rem; color: #d2d2d2; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .reproductor-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background:black; z-index:3000; }
 .btn-salir-cine { position: absolute; top:30px; left:30px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); padding:10px 20px; border-radius:30px; cursor:pointer; backdrop-filter:blur(5px); z-index: 3001; }
 
+/* ========================================= */
+/* === MEDIA QUERY MÓVIL (CAMBIOS CLAVE) === */
+/* ========================================= */
 @media (max-width: 768px) {
   .profile-info { display: none; }
   .toolbar-container { flex-direction: column-reverse; align-items: stretch; gap: 15px; }
   .search-inline { width: 100%; }
   .header-logo { height: 35px; }
-  .modal-content { height: 100%; border-radius: 0; }
+  .modal-content { height: 100%; border-radius: 0; max-height: 100vh; }
+
+  /* 1. ARREGLO DEL NOTCH/HEADER OSCURO */
+  .header-container {
+    background-color: var(--bg-dark) !important; /* Fondo sólido oscuro */
+    backdrop-filter: none !important; /* Quitar transparencia */
+    border-bottom: 1px solid rgba(255,255,255,0.05); /* Borde sutil opcional */
+  }
+
+  /* 2. GRILLA DE 3 COLUMNAS PARA POSTERS */
+  .fila-posters-container {
+    display: grid; /* Cambiar a Grid */
+    grid-template-columns: repeat(3, 1fr); /* 3 columnas de igual ancho */
+    gap: 10px; /* Espacio entre posters */
+    overflow-x: visible; /* Quitar scroll horizontal */
+    padding-bottom: 0;
+  }
+
+  /* Ajustar la tarjeta para la grilla móvil */
+  .poster-card {
+    width: 100% !important; /* Ocupar todo el ancho de la celda */
+    border-radius: 6px;
+  }
+
+  .titulo-fila {
+      font-size: 1.3rem;
+      margin-left: 0; /* Alinear con el padding del contenedor */
+  }
 }
 @media (min-width: 769px) { .profile-info { display: block; } }
