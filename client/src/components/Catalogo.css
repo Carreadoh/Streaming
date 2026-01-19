@@ -6,7 +6,7 @@
 
 body.modal-abierto { overflow: hidden !important; height: 100vh; }
 
-/* --- FONDO --- */
+/* --- FONDO NEÓN GAMING --- */
 .catalogo-container {
   min-height: 100vh;
   background-color: var(--bg-dark);
@@ -20,7 +20,7 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
-/* --- HEADER & PERFIL (Estilos previos conservados) --- */
+/* --- HEADER & PERFIL --- */
 .header-container {
   display: flex; justify-content: flex-end; align-items: center; padding: 10px 4%; height: 60px;
   background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -45,31 +45,29 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .plataformas-list::-webkit-scrollbar { display: none; }
 .plat-btn { width: 55px; height: 55px; border-radius: 50%; background: #18181b; border: 2px solid #333; display: flex; justify-content: center; align-items: center; flex-shrink: 0; cursor: pointer; overflow: hidden; }
 .plat-btn img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; border-radius: 22px; }
+.plat-btn[title="Netflix"] img, .plat-btn[title="Amazon"] img, .plat-btn[title="Paramount"] img, .plat-btn[title="Disney"] img, .plat-btn[title="HBO"] img { width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 22px; transform: scale(1.1); }
 .plat-btn:hover img, .plat-btn.active img { opacity: 1; transform: scale(1.1); }
+.plat-btn:hover, .plat-btn.active { background: #27272a; border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
 .search-inline { width: 100%; max-width: 400px; position: relative; }
 .search-input { width: 100%; background: #222; border: 1px solid #333; padding: 10px 15px 10px 40px; border-radius: 30px; color: white; outline: none; }
 .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; }
 
-/* --- ESTILOS DE FILA (ADAPTADOS A TU CÓDIGO JSX) --- */
+/* --- ESTILOS DE FILA (Desktop) --- */
 .filas-generos { min-height: 60vh; }
 .fila-container { margin-bottom: 30px; padding: 0 4%; position: relative; }
-
 .fila-titulo { font-size: 1.5rem; font-weight: 700; margin-bottom: 15px; color: #fff; }
-
 .fila-wrapper { position: relative; display: flex; align-items: center; }
 
-/* Contenedor Scroll Desktop */
 .fila-posters {
   display: flex;
   gap: 15px;
-  overflow-x: auto; /* Scroll en PC */
+  overflow-x: auto;
   scroll-behavior: smooth;
   padding-bottom: 10px;
   scrollbar-width: none;
 }
 .fila-posters::-webkit-scrollbar { display: none; }
 
-/* Tarjeta Individual */
 .fila-poster {
   flex: 0 0 auto;
   width: 160px; /* Tamaño PC */
@@ -82,39 +80,32 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .fila-poster img { width: 100%; height: 100%; object-fit: cover; }
 .fila-poster:hover { transform: scale(1.05); z-index: 2; }
 
-/* Botones Flecha (Solo Desktop) */
-.flecha {
-  background: rgba(0,0,0,0.6);
-  border: none;
-  color: white;
-  font-size: 2rem;
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 40px;
-  z-index: 10;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.3s;
-  height: 100%; /* Ocupa todo el alto de la fila */
-}
+.flecha { background: rgba(0,0,0,0.6); border: none; color: white; font-size: 2rem; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.3s; height: 100%; }
 .flecha:hover { background: rgba(0,0,0,0.9); }
 .flecha-izquierda { left: -40px; border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
 .flecha-derecha { right: -40px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
 
-/* --- LOGIN, MODAL, ETC (Igual que antes) --- */
+/* --- LOGIN, MODAL, ETC --- */
 .login-premium-bg { height: 100vh; width: 100vw; background-color: #0f0f12; display: flex; justify-content: center; align-items: center; position: fixed; top: 0; z-index: 9999; }
 .login-card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; }
 .login-title { font-size: 24px; color: white; margin-bottom: 10px; }
 .login-input { width: 100%; padding: 12px; margin-bottom: 15px; background: rgba(0,0,0,0.3); border: 1px solid #333; color: white; border-radius: 8px; }
 .btn-login-premium { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+.login-footer { margin-top: 25px; font-size: 13px; color: #64748b; }
+
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-.modal-content { background: #141414; width: 95%; max-width: 750px; max-height: 85vh; border-radius: 12px; overflow-y: auto; position: relative; }
+.modal-content { background: #141414; width: 95%; max-width: 750px; max-height: 85vh; border-radius: 12px; overflow-y: auto; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
 .video-area { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
 .btn-cerrar { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 18px; cursor: pointer; z-index: 10; }
+.video-wrapper, iframe { width: 100%; height: 100%; border: none; }
 .info-container { padding: 20px; }
 .titulo-principal { font-size: 1.8rem; margin-bottom: 10px; }
+.meta-row { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; font-size: 0.9rem; color: #aaa; }
+.hd-badge { border: 1px solid #aaa; padding: 0 5px; border-radius: 3px; font-size: 0.7rem; font-weight: bold; }
+.sinopsis { color: #ccc; line-height: 1.6; font-size: 1rem; margin: 25px 0; }
 .btn-accion-full { width: 100%; padding: 12px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
 .blanco { background: white; color: black; }
+
 .tabs-container { margin-top: 30px; border-top: 1px solid #404040; padding-top: 20px; }
 .cabecera-episodios { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .tab-header { font-size: 1.5rem; font-weight: 700; color: #fff; }
@@ -134,7 +125,7 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
 .btn-salir-cine { position: absolute; top:30px; left:30px; background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2); padding:10px 20px; border-radius:30px; cursor:pointer; backdrop-filter:blur(5px); z-index: 3001; }
 
 /* ================================================= */
-/* === VISTA MÓVIL (CORRECCIÓN CON TU CÓDIGO) === */
+/* === VISTA MÓVIL (SCROLL HORIZONTAL DE 3) === */
 /* ================================================= */
 @media (max-width: 768px) {
   
@@ -154,24 +145,27 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
     gap: 15px;
   }
 
-  /* 3. TRANSFORMAR SCROLL EN GRILLA DE 3 COLUMNAS */
+  /* 3. SCROLL HORIZONTAL (NO GRILLA) */
   .fila-posters {
-    display: grid !important; /* Forzar Grid */
-    grid-template-columns: repeat(3, 1fr) !important; /* 3 columnas exactas */
+    display: flex !important; /* Volvemos a Flex para Scroll */
+    overflow-x: auto !important; /* Habilitar scroll */
+    scroll-snap-type: x mandatory; /* Efecto magnético */
     gap: 10px !important;
-    overflow-x: visible !important; /* Quitar scroll */
-    padding-bottom: 0 !important;
+    padding-bottom: 15px !important;
+    flex-wrap: nowrap !important; /* Evitar que bajen a otra línea */
   }
 
   /* 4. Ocultar Flechas en Móvil */
-  .flecha {
-    display: none !important;
-  }
+  .flecha { display: none !important; }
 
-  /* 5. Ajustar Tarjetas a la Grilla */
+  /* 5. TAMAÑO EXACTO PARA 3 PELÍCULAS */
   .fila-poster {
-    width: 100% !important; /* Llenar celda */
+    /* El truco: 31% del ancho. 31 * 3 = 93%, deja un borde para ver que sigue */
+    flex: 0 0 31% !important; 
+    width: 31% !important;
+    min-width: 31% !important;
     border-radius: 6px;
+    scroll-snap-align: start; /* Para que se detenga bien alineado */
   }
 
   .fila-container { padding: 0 10px; }
