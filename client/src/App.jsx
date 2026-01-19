@@ -1,21 +1,25 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Catalogo from './components/Catalogo';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 function App() {
-
   return (
-    <div className="App">
-      {/* Mantenemos tu Header porque se veía bien */}
-      <header style={{ textAlign: 'center', padding: '20px', color: 'white' }}>
-        <h1>Cuevanarg</h1>
-        <p>Sistema creado por Foxapps 🦊</p>
-      </header>
+    <Router>
+      <div className="App">
+        <Routes>
+          {/* Ruta Principal: El Catálogo se encarga de su propio diseño */}
+          <Route path="/" element={<Catalogo />} />
 
-      {/* Aquí renderizamos todo el poder de tu nueva lógica */}
-      <main>
-        <Catalogo />
-      </main>
-    </div>
+          {/* Ruta Admin */}
+          <Route path="/admin" element={<AdminPanel />} />
+
+          {/* Redirección por defecto */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 
