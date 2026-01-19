@@ -11,12 +11,12 @@ const PROVEEDOR_BASE = 'https://vidsrc.xyz/embed';
 
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
-  { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
+  { id: 'Disney', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Disney%2B_logo.svg' },
   { id: 'Amazon', logo: 'https://play-lh.googleusercontent.com/mZ6pRo5-NnrO9GMwFNrK5kShF0UrN5UOARVAw64_5aFG6NgEHSlq-BX5I8TEXtTOk9s' },
-  { id: 'Apple', logo: 'https://i.blogs.es/a1d8ea/apple-tv/1200_900.jpeg' },
-  { id: 'HBO', logo: 'https://frontend-assets.clipsource.com/60dedc6376ad9/hbo-60def166a1502/2024/08/03/66ae50c0ca12f_thumbnail.png' },
-  { id: 'Paramount', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/FWS265CNEJEQHF53MCJQ3QR2PA.jpg' },
-  { id: 'Crunchyroll', logo: 'https://sm.ign.com/ign_latam/cover/c/crunchyrol/crunchyroll_xkv2.jpg' },
+  { id: 'Apple', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/28/Apple_TV_Plus_Logo.svg' },
+  { id: 'HBO', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/17/HBO_Max_Logo.svg' },
+  { id: 'Paramount', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Paramount_Plus.svg' },
+  { id: 'Crunchyroll', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Crunchyroll_Logo.png' },
   { id: 'Cine', logo: 'https://cdn-icons-png.flaticon.com/512/3163/3163508.png' },
 ];
 
@@ -35,7 +35,8 @@ const Catalogo = () => {
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
-  const [demoBloqueado, setDemoBloqueado] = useState(false);
+  
+  // Eliminamos el estado 'demoBloqueado' y su temporizador porque ya no restringimos por tiempo.
   
   const playerRef = useRef(null);
   const [numTemporadas, setNumTemporadas] = useState([]); 
@@ -43,18 +44,19 @@ const Catalogo = () => {
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  // --- LOGICA DE SESIÓN ---
+  // --- LOGICA DE SESIÓN (Aquí es donde se controla la fecha) ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        if (user.email === "admin@streamgo.com") {
+        if (user.email === "admin@streamgo.com") { // Corregido admin email según tu código
              setUsuario(user);
         } else {
              const userDocRef = doc(db, "usuarios", user.uid);
              const userDocSnap = await getDoc(userDocRef);
              if (userDocSnap.exists()) {
                  const userData = userDocSnap.data();
+                 // AQUÍ ESTÁ LA RESTRICCIÓN REAL: Si la fecha pasó, se cierra la sesión.
                  const fechaVencimiento = new Date(userData.fecha_vencimiento);
                  if (new Date() > fechaVencimiento) {
                      await signOut(auth);
@@ -111,15 +113,6 @@ const Catalogo = () => {
     else document.body.classList.remove('modal-abierto');
     return () => { document.body.classList.remove('modal-abierto'); };
   }, [item]);
-
-  useEffect(() => {
-    let timer;
-    if (verPeliculaCompleta) {
-      setDemoBloqueado(false); 
-      timer = setTimeout(() => { setDemoBloqueado(true); }, 30000); 
-    }
-    return () => clearTimeout(timer);
-  }, [verPeliculaCompleta]);
 
   const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda) => {
     const agrupado = {};
@@ -218,7 +211,6 @@ const Catalogo = () => {
       <div className="login-premium-bg">
         <div className="login-card">
           
-          {/* LOGO CENTRADO (FLEXBOX) */}
           <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}>
              <img src="/logo.svg" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
           </div>
@@ -242,7 +234,6 @@ const Catalogo = () => {
             <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{color: '#818cf8', textDecoration: 'none', fontWeight:'bold', marginLeft:'5px'}}>Suscríbete aquí</a>
           </div>
 
-          {/* CRÉDITOS FOXAPPS */}
           <div style={{marginTop: '40px', fontSize: '11px', color: '#666'}}>
             Desarrollado por 
             <a href="https://foxapps.vercel.app" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>
@@ -316,16 +307,9 @@ const Catalogo = () => {
       {verPeliculaCompleta && item && (
         <div className="reproductor-overlay" ref={playerRef}>
           <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
-          {demoBloqueado ? (
-            <div style={{width:'100%', height:'100%', display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', background:'rgba(0,0,0,0.95)', color:'white', zIndex:10, textAlign:'center', padding:'20px'}}>
-              <h1 style={{fontSize:'3rem', marginBottom:'20px'}}>🔒 Suscripción Finalizada</h1>
-              <p style={{fontSize:'1.5rem', marginBottom:'30px'}}>Renová tu suscripción</p>
-              <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{padding:'15px 40px', fontSize:'1.2rem', background:'#25D366', color:'white', borderRadius:'5px', textDecoration:'none', fontWeight:'bold'}}><span>💬</span> WhatsApp</a>
-              <button onClick={() => setVerPeliculaCompleta(false)} style={{marginTop:'20px', background:'transparent', color:'#aaa', border:'none', cursor:'pointer', textDecoration:'underline'}}>Volver</button>
-            </div>
-          ) : (
-            <iframe src={item.tipo === 'serie' ? `${PROVEEDOR_BASE}/tv/${item.id_tmdb}/${capituloActual.temp}/${capituloActual.cap}` : `${PROVEEDOR_BASE}/movie/${item.id_tmdb}`} title="Pelicula Completa" allow="autoplay; fullscreen" style={{ width: '100%', height: '100%', border: 'none' }} />
-          )}
+          
+          {/* Aquí se reproduce directamente sin bloqueo de tiempo */}
+          <iframe src={item.tipo === 'serie' ? `${PROVEEDOR_BASE}/tv/${item.id_tmdb}/${capituloActual.temp}/${capituloActual.cap}` : `${PROVEEDOR_BASE}/movie/${item.id_tmdb}`} title="Pelicula Completa" allow="autoplay; fullscreen" style={{ width: '100%', height: '100%', border: 'none' }} />
         </div>
       )}
 
@@ -335,7 +319,6 @@ const Catalogo = () => {
             <div className="video-area">
               <button className="btn-cerrar" onClick={cerrarModal}>✕</button>
               {trailerKey ? (
-                /* IFRAME SIN CAPA PARA PODER PAUSAR EL TRAILER */
                 <iframe 
                   src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&loop=1&playlist=${trailerKey}`} 
                   title="Trailer" 
