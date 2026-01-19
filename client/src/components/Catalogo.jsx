@@ -289,8 +289,8 @@ const Catalogo = () => {
             </button>
           </form>
           
-          <div style={{marginTop: '20px', color: '#737373', fontSize: '13px'}}>
-            Sistema Protegido. <span style={{color: 'white', cursor: 'pointer'}}>Ayuda</span>
+          <div style={{marginTop: '20px', color: '#e67104', fontSize: '13px'}}>
+            Sistema desarrollado por Foxapps
           </div>
         </div>
       </div>
