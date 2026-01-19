@@ -48,7 +48,7 @@ const Catalogo = () => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        if (user.email === "admin@cuevana.com") {
+        if (user.email === "admin@streamgo.com") {
              setUsuario(user);
         } else {
              const userDocRef = doc(db, "usuarios", user.uid);
@@ -318,8 +318,8 @@ const Catalogo = () => {
           <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           {demoBloqueado ? (
             <div style={{width:'100%', height:'100%', display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', background:'rgba(0,0,0,0.95)', color:'white', zIndex:10, textAlign:'center', padding:'20px'}}>
-              <h1 style={{fontSize:'3rem', marginBottom:'20px'}}>🔒 Demo Finalizada</h1>
-              <p style={{fontSize:'1.5rem', marginBottom:'30px'}}>¿Te gustó? Adquirí el sistema completo.</p>
+              <h1 style={{fontSize:'3rem', marginBottom:'20px'}}>🔒 Suscripción Finalizada</h1>
+              <p style={{fontSize:'1.5rem', marginBottom:'30px'}}>Renová tu suscripción</p>
               <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{padding:'15px 40px', fontSize:'1.2rem', background:'#25D366', color:'white', borderRadius:'5px', textDecoration:'none', fontWeight:'bold'}}><span>💬</span> WhatsApp</a>
               <button onClick={() => setVerPeliculaCompleta(false)} style={{marginTop:'20px', background:'transparent', color:'#aaa', border:'none', cursor:'pointer', textDecoration:'underline'}}>Volver</button>
             </div>
