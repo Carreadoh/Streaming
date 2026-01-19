@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs } from 'firebase/firestore';
+// Importamos Auth de Firebase
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import axios from 'axios';
 import Fila from './Fila';
 import './Catalogo.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-
-// PROVEEDOR DE VIDEO
 const PROVEEDOR_BASE = 'https://vidsrc.xyz/embed'; 
 
 const PLATAFORMAS = [
@@ -22,14 +22,23 @@ const PLATAFORMAS = [
 ];
 
 const Catalogo = () => {
+  // --- ESTADOS DE LOGIN ---
+  const [usuario, setUsuario] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorLogin, setErrorLogin] = useState('');
+
+  // --- ESTADOS DEL CATÁLOGO ---
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
   const [busqueda, setBusqueda] = useState('');
-
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
+  
+  // Estado Demo
+  const [demoBloqueado, setDemoBloqueado] = useState(false);
   
   const playerRef = useRef(null);
   const [numTemporadas, setNumTemporadas] = useState([]); 
@@ -37,8 +46,34 @@ const Catalogo = () => {
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  // Carga inicial de datos
+  // --- EFECTO: VERIFICAR SI YA ESTÁ LOGUEADO ---
   useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) setUsuario(user);
+      else setUsuario(null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- FUNCIÓN DE LOGIN ---
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setErrorLogin('');
+    const auth = getAuth();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // El onAuthStateChanged se encargará de actualizar el estado 'usuario'
+    } catch (error) {
+      console.error("Error login:", error);
+      setErrorLogin("Credenciales incorrectas. Intenta de nuevo.");
+    }
+  };
+
+  // --- CARGA DE DATOS (SOLO SI HAY USUARIO) ---
+  useEffect(() => {
+    if (!usuario) return; // Si no hay usuario, no cargamos nada
+
     const obtenerDatos = async () => {
       const pelisRef = collection(db, "peliculas");
       const seriesRef = collection(db, "series");
@@ -51,65 +86,54 @@ const Catalogo = () => {
         });
         const dataUnica = Array.from(mapaItems.values());
         
-        // --- AQUÍ ESTÁ EL CHIVATO ---
-        // Esto filtrará los nombres repetidos y te mostrará la lista limpia en la consola
+        // Debug Plataformas
         const plataformasEncontradas = [...new Set(dataUnica.map(p => p.plataforma_origen))];
-        console.log("📢 LISTA DE PLATAFORMAS EN BD:", plataformasEncontradas);
-        // ----------------------------
+        console.log("📢 PLATAFORMAS EN BD:", plataformasEncontradas);
 
         setTodosLosItems(dataUnica);
         organizarPorGeneros(dataUnica, null, ''); 
       } catch (e) { console.error(e); }
     };
     obtenerDatos();
-  }, []);
+  }, [usuario]); // Se ejecuta cuando el usuario cambia (se loguea)
 
-  // Bloqueo de scroll body
+  // Bloqueo de scroll
   useEffect(() => {
-    if (item) {
-      document.body.classList.add('modal-abierto');
-    } else {
-      document.body.classList.remove('modal-abierto');
-    }
+    if (item) document.body.classList.add('modal-abierto');
+    else document.body.classList.remove('modal-abierto');
     return () => { document.body.classList.remove('modal-abierto'); };
   }, [item]);
+
+  // Demo Timer
+  useEffect(() => {
+    let timer;
+    if (verPeliculaCompleta) {
+      setDemoBloqueado(false); 
+      timer = setTimeout(() => {
+        setDemoBloqueado(true); 
+      }, 30000); 
+    }
+    return () => clearTimeout(timer);
+  }, [verPeliculaCompleta]);
 
   const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda) => {
     const agrupado = {};
     items.forEach(p => {
-      // 1. Filtro por Texto (Buscador)
       if (textoBusqueda) {
         const titulo = p.titulo.toLowerCase();
         const busquedaLower = textoBusqueda.toLowerCase();
         if (!titulo.includes(busquedaLower)) return;
       }
-      
-      // 2. Normalización del Origen (Para evitar errores de mayúsculas/espacios)
       const origen = (p.plataforma_origen || "Otros").toLowerCase().trim();
-      
-      // 3. Filtro por Plataforma (Botones)
       if (filtroPlataforma) {
         const pFiltro = filtroPlataforma.toLowerCase();
         let coincide = false;
-        
-        if (pFiltro === 'cine') { 
-            if (origen === 'cine' || p.generos?.includes('Estrenos')) coincide = true; 
-        }
-        else if (pFiltro === 'amazon') { 
-            if (origen.includes('amazon') || origen.includes('prime')) coincide = true; 
-        }
-        else if (pFiltro === 'hbo') { 
-            // Filtro flexible para HBO
-            if (origen.includes('hbo') || origen.includes('max')) coincide = true; 
-        }
-        else { 
-            if (origen.includes(pFiltro)) coincide = true; 
-        }
-        
+        if (pFiltro === 'cine') { if (origen === 'cine' || p.generos?.includes('Estrenos')) coincide = true; }
+        else if (pFiltro === 'amazon') { if (origen.includes('amazon') || origen.includes('prime')) coincide = true; }
+        else if (pFiltro === 'hbo') { if (origen.includes('hbo') || origen.includes('max')) coincide = true; }
+        else { if (origen.includes(pFiltro)) coincide = true; }
         if (!coincide) return;
       }
-      
-      // 4. Agrupación por Géneros
       let listaGeneros = p.generos && p.generos.length > 0 ? p.generos : ["General"]; 
       listaGeneros.forEach(genero => {
         if (!agrupado[genero]) agrupado[genero] = [];
@@ -134,13 +158,6 @@ const Catalogo = () => {
       organizarPorGeneros(todosLosItems, idPlat, busqueda); 
     }
   };
-
-  useEffect(() => {
-    if (verPeliculaCompleta && playerRef.current) {
-      const elem = playerRef.current;
-      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-    }
-  }, [verPeliculaCompleta]);
 
   const buscarTrailer = async (idTMDB, tipo) => {
     setTrailerKey(null); 
@@ -210,9 +227,92 @@ const Catalogo = () => {
     setVerPeliculaCompleta(true);
   };
 
+  // --- RENDERIZADO DEL LOGIN (Si no hay usuario) ---
+  if (!usuario) {
+    return (
+      <div style={{
+        width: '100vw', height: '100vh', 
+        backgroundColor: '#000000', 
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5))'
+      }}>
+        <div style={{
+          backgroundColor: 'rgba(20, 20, 20, 0.95)', 
+          padding: '60px 68px 40px', 
+          borderRadius: '4px', 
+          width: '100%', maxWidth: '450px',
+          boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+        }}>
+          {/* LOGO */}
+          <div style={{textAlign: 'center', marginBottom: '30px'}}>
+             <img src="/logo.png" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
+          </div>
+
+          <h2 style={{color: 'white', marginBottom: '28px', fontSize: '32px', fontWeight: 'bold'}}>Iniciar Sesión</h2>
+          
+          <form onSubmit={handleLogin} style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+            <input 
+              type="email" 
+              placeholder="Correo electrónico" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{
+                background: '#333', border: 'none', borderRadius: '4px',
+                color: 'white', height: '50px', padding: '0 20px', fontSize: '16px'
+              }}
+              required
+            />
+            <input 
+              type="password" 
+              placeholder="Contraseña" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                background: '#333', border: 'none', borderRadius: '4px',
+                color: 'white', height: '50px', padding: '0 20px', fontSize: '16px'
+              }}
+              required
+            />
+            
+            {errorLogin && <p style={{color: '#e50914', fontSize: '14px'}}>{errorLogin}</p>}
+
+            <button 
+              type="submit" 
+              style={{
+                backgroundColor: '#e50914', color: 'white', 
+                border: 'none', borderRadius: '4px', 
+                fontSize: '16px', fontWeight: 'bold', 
+                padding: '16px', marginTop: '24px', cursor: 'pointer'
+              }}
+            >
+              Iniciar sesión
+            </button>
+          </form>
+          
+          <div style={{marginTop: '20px', color: '#737373', fontSize: '13px'}}>
+            Sistema Protegido. <span style={{color: 'white', cursor: 'pointer'}}>Ayuda</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDERIZADO DEL CATÁLOGO (Si hay usuario) ---
   return (
     <div className="catalogo-container">
       
+      {/* Botón de Logout (Opcional, discreto arriba a la derecha) */}
+      <button 
+        onClick={() => getAuth().signOut()}
+        style={{
+          position: 'fixed', top: '20px', right: '20px', zIndex: 100,
+          background: 'rgba(0,0,0,0.5)', border: '1px solid white', 
+          color: 'white', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer'
+        }}
+      >
+        Salir
+      </button>
+
       <div className="buscador-container">
         <div className="input-wrapper">
           <svg className="icono-lupa" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -253,15 +353,50 @@ const Catalogo = () => {
         <div className="reproductor-overlay" ref={playerRef}>
           <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           
-          <iframe 
-            src={item.tipo === 'serie' 
-              ? `${PROVEEDOR_BASE}/tv/${item.id_tmdb}/${capituloActual.temp}/${capituloActual.cap}`
-              : `${PROVEEDOR_BASE}/movie/${item.id_tmdb}`
-            }
-            title="Pelicula Completa" 
-            allow="autoplay; fullscreen" 
-            style={{ width: '100%', height: '100%', border: 'none' }}
-          />
+          {/* --- BLOQUEO DEMO --- */}
+          {demoBloqueado ? (
+            <div style={{
+              width: '100%', height: '100%', 
+              display: 'flex', flexDirection: 'column', 
+              justifyContent: 'center', alignItems: 'center', 
+              background: 'rgba(0,0,0,0.95)', color: 'white', zIndex: 10,
+              textAlign: 'center', padding: '20px'
+            }}>
+              <h1 style={{fontSize: '3rem', marginBottom: '20px'}}>🔒 Demo Finalizada</h1>
+              <p style={{fontSize: '1.5rem', marginBottom: '30px'}}>¿Te gustó? Adquirí el sistema completo para seguir viendo.</p>
+              
+              <a 
+                href={`https://wa.me/5491124023668?text=Hola!%20Acabo%20de%20probar%20la%20demo%20de%20"${item.titulo}"%20y%20me%20gustaría%20adquirir%20el%20sistema%20completo.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: '15px 40px', fontSize: '1.2rem', 
+                  background: '#25D366', color: 'white', border: 'none', 
+                  borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold',
+                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px'
+                }}
+              >
+                <span>💬</span> Adquirir por WhatsApp
+              </a>
+              
+              <button 
+                onClick={() => setVerPeliculaCompleta(false)}
+                style={{marginTop: '20px', background: 'transparent', color: '#aaa', border: 'none', cursor: 'pointer', textDecoration: 'underline'}}
+              >
+                Volver al catálogo
+              </button>
+            </div>
+          ) : (
+            <iframe 
+              src={item.tipo === 'serie' 
+                ? `${PROVEEDOR_BASE}/tv/${item.id_tmdb}/${capituloActual.temp}/${capituloActual.cap}`
+                : `${PROVEEDOR_BASE}/movie/${item.id_tmdb}`
+              }
+              title="Pelicula Completa" 
+              allow="autoplay; fullscreen" 
+              style={{ width: '100%', height: '100%', border: 'none' }}
+            />
+          )}
         </div>
       )}
 
