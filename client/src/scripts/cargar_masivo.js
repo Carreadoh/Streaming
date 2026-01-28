@@ -16,21 +16,18 @@ const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// IDs OFICIALES ACTUALIZADOS (2025/2026) PARA ARGENTINA (AR)
 const PROVEEDORES = [
   { id: 8, nombre: 'Netflix' },
   { id: 337, nombre: 'Disney' },
   { id: 119, nombre: 'Amazon' },
   { id: 350, nombre: 'Apple' },
-  { id: 1899, nombre: 'HBO' }, // <--- CAMBIADO: 384 (Viejo) -> 1899 (Max Nuevo)
+  { id: 1899, nombre: 'HBO' },
   { id: 531, nombre: 'Paramount' },
   { id: 283, nombre: 'Crunchyroll' }
 ];
 
-// Cuantas páginas de contenido quieres por plataforma?
 const PAGINAS_A_CARGAR = 10; 
 
-// Función para pausar un poco y no saturar la API
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const obtenerGeneros = async (tipo) => {

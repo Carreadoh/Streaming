@@ -1,8 +1,7 @@
-/* Contenedor principal de la fila */
 .fila-container {
   margin-bottom: 20px;
-  position: relative; /* Necesario para que las flechas se ubiquen bien */
-  padding: 0 20px; /* Margen para que no toque los bordes de la pantalla */
+  position: relative;
+  padding: 0 20px;
 }
 
 .fila-titulo {
@@ -13,7 +12,6 @@
   padding-left: 10px;
 }
 
-/* El Wrapper agrupa flechas y posters */
 .fila-wrapper {
   position: relative;
   display: flex;
@@ -27,8 +25,7 @@
   scroll-behavior: smooth;
   padding: 10px 20px;
   
-  /* --- AGREGA ESTA LÍNEA --- */
-  touch-action: pan-x pan-y; /* Le dice a Chrome: "Deja que el dedo mueva esto libremente" */
+  touch-action: pan-x pan-y;
   
   scrollbar-width: none; 
   -ms-overflow-style: none;
@@ -39,14 +36,13 @@
 }
 
 .fila-poster {
-  min-width: 140px; /* Tamaño fijo */
+  min-width: 140px;
   height: 210px;
   border-radius: 5px;
   overflow: hidden;
   transition: transform 0.3s;
   cursor: pointer;
   
-  /* IMPORTANTE: Para que no se aplasten */
   flex-shrink: 0; 
 }
 
@@ -57,7 +53,6 @@
   display: block;
 }
 
-/* Hover solo en PC */
 @media (hover: hover) { 
   .fila-poster:hover {
     transform: scale(1.08);
@@ -66,18 +61,17 @@
   }
 }
 
-/* --- LAS FLECHAS --- */
 .flecha {
   position: absolute;
   top: 0;
-  bottom: 0; /* Ocupa todo el alto de la fila */
+  bottom: 0;
   width: 50px;
-  background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
+  background-color: rgba(0, 0, 0, 0.5);
   color: white;
   border: none;
   font-size: 3rem;
   cursor: pointer;
-  z-index: 100; /* MUY IMPORTANTE: Asegura que esté ARRIBA de los posters */
+  z-index: 100;
   
   display: flex;
   align-items: center;
@@ -88,7 +82,6 @@
   transition: opacity 0.3s ease;
 }
 
-/* Al pasar el mouse sobre LA FILA ENTERA, aparecen las flechas */
 .fila-wrapper:hover .flecha {
   opacity: 1;
 }
@@ -99,18 +92,16 @@
 }
 
 .flecha-izquierda {
-  left: -20px; /* La sacamos un poquito a la izquierda */
+  left: -20px;
   border-radius: 0 5px 5px 0;
 }
 
 .flecha-derecha {
-  right: -20px; /* La sacamos un poquito a la derecha */
+  right: -20px;
   border-radius: 5px 0 0 5px;
 }
 
-/* --- AJUSTES PARA CELULAR --- */
 @media (max-width: 768px) {
-  /* En celular ocultamos las flechas (se usa el dedo) */
   .flecha {
     display: none !important;
   }

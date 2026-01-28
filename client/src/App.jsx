@@ -9,13 +9,10 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
-          {/* Ruta Principal: El Catálogo se encarga de su propio diseño */}
           <Route path="/" element={<Catalogo />} />
 
-          {/* Ruta Admin */}
           <Route path="/admin" element={<AdminPanel />} />
 
-          {/* Redirección por defecto */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

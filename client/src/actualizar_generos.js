@@ -1,9 +1,8 @@
-// src/actualizar_generos.js
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import axios from 'axios';
 
-// --- TUS CREDENCIALES DE FIREBASE (Cópialas de tu firebase.js) ---
+// --- TUS CREDENCIALES DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyA1_Hd2K0xrkDc5ZZht-2WxTVE1hyWu04E",
   authDomain: "cuevanarg.firebaseapp.com",
@@ -13,7 +12,6 @@ const firebaseConfig = {
   appId: "1:149062152720:web:b25b096345629e7b4e5095"
 };
 
-// API Key de TMDB
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 
 const app = initializeApp(firebaseConfig);
@@ -38,17 +36,14 @@ const actualizarColeccion = async (nombreColeccion, tipoTMDB) => {
     if (!idTmdb) continue;
 
     try {
-      // 1. Preguntar a TMDB los detalles reales (incluyendo géneros)
       const url = `https://api.themoviedb.org/3/${tipoTMDB}/${idTmdb}?api_key=${TMDB_API_KEY}&language=es-MX`;
       const res = await axios.get(url);
       
-      // 2. Extraer solo los nombres de los géneros (Ej: ["Acción", "Aventura"])
       const generosReales = res.data.genres.map(g => g.name);
 
-      // 3. Actualizar Firebase
       const docRef = doc(db, nombreColeccion, documento.id);
       await updateDoc(docRef, {
-        generos: generosReales // Guardamos el array real
+        generos: generosReales
       });
 
       console.log(`✅ ${data.titulo}: [${generosReales.join(", ")}]`);
@@ -58,7 +53,6 @@ const actualizarColeccion = async (nombreColeccion, tipoTMDB) => {
       console.error(`❌ Error con ${data.titulo}:`, error.message);
     }
     
-    // Pequeña pausa para no saturar la API
     await new Promise(r => setTimeout(r, 200)); 
   }
 

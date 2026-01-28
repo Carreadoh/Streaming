@@ -9,8 +9,6 @@ import './AdminPanel.css';
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const EMAIL_PERMITIDO = "admin@streamgo.com"; 
 
-// NECESITAMOS LA CONFIGURACIÓN DE FIREBASE PARA CREAR USUARIOS SIN CERRAR TU SESIÓN
-// Copia esto de tu archivo firebase.js
 const firebaseConfig = {
   apiKey: "AIzaSyA1_Hd2K0xrkDc5ZZht-2WxTVE1hyWu04E",
   authDomain: "cuevanarg.firebaseapp.com",
@@ -21,27 +19,21 @@ const firebaseConfig = {
 };
 
 const AdminPanel = () => {
-  // --- AUTH STATES ---
   const [adminUser, setAdminUser] = useState(null);
   const [emailLogin, setEmailLogin] = useState('');
   const [passwordLogin, setPasswordLogin] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
-
-  // --- VISTA ACTUAL (Dashboard, Peliculas, Series, Usuarios) ---
   const [vista, setVista] = useState('dashboard');
 
-  // --- DATA STATES ---
   const [stats, setStats] = useState({ peliculas: 0, series: 0, usuarios: 0 });
   const [contenido, setContenido] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // --- IMPORT STATES ---
   const [nuevoId, setNuevoId] = useState('');
   const [tipoAgregado, setTipoAgregado] = useState('movie');
   const [mensaje, setMensaje] = useState('');
 
-  // --- NUEVO USUARIO STATES ---
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPass, setNewUserPass] = useState('');
   const [mesesSuscripcion, setMesesSuscripcion] = useState(1);
@@ -49,7 +41,6 @@ const AdminPanel = () => {
 
   const auth = getAuth();
 
-  // 1. VERIFICACIÓN DE SESIÓN ADMIN
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user && user.email === EMAIL_PERMITIDO) {
@@ -73,7 +64,6 @@ const AdminPanel = () => {
     }
   };
 
-  // 2. CARGAR TODOS LOS DATOS
   const cargarTodo = async () => {
     setLoading(true);
     try {
@@ -105,7 +95,6 @@ const AdminPanel = () => {
     setLoading(false);
   };
 
-  // 3. FUNCIONES DE CONTENIDO (Eliminar / Importar)
   const eliminarItem = async (id, coleccion) => {
     if (!window.confirm("¿Eliminar contenido?")) return;
     try {
@@ -145,12 +134,10 @@ const AdminPanel = () => {
     } catch (error) { setMensaje("❌ ID no encontrado."); }
   };
 
-  // 4. CREAR USUARIO CLIENTE (Con Fecha de Vencimiento)
   const crearUsuarioCliente = async (e) => {
     e.preventDefault();
     setMsgUsuario("⏳ Creando usuario...");
 
-    // TRUCO: Usamos una App Secundaria para crear el usuario SIN desloguear al admin
     const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
     const secondaryAuth = getAuth(secondaryApp);
 
@@ -172,7 +159,6 @@ const AdminPanel = () => {
         activo: true
       });
 
-      // 4. Limpieza
       await signOut(secondaryAuth); // Cerramos la sesión secundaria inmediatamente
       setMsgUsuario(`✅ Usuario creado. Vence: ${fechaVencimiento.toLocaleDateString()}`);
       setNewUserEmail('');
@@ -194,14 +180,12 @@ const AdminPanel = () => {
     } catch (e) { alert("Error"); }
   }
 
-  // --- FILTRAR CONTENIDO SEGÚN VISTA ---
   const getContenidoVisible = () => {
     if (vista === 'peliculas') return contenido.filter(i => i.tipo === 'movie');
     if (vista === 'series') return contenido.filter(i => i.tipo === 'serie');
     return contenido; // Dashboard muestra mezcla
   };
 
-  // --- RENDER: LOGIN ---
   if (!adminUser) {
     return (
       <div className="login-dashboard-bg">
@@ -223,7 +207,6 @@ const AdminPanel = () => {
     );
   }
 
-  // --- RENDER: PANEL ---
   return (
     <div className="admin-layout">
       {/* SIDEBAR */}
@@ -252,7 +235,6 @@ const AdminPanel = () => {
         {/* VISTA: USUARIOS */}
         {vista === 'usuarios' ? (
           <div className="dashboard-split">
-             {/* CREAR USUARIO */}
              <div className="section-card" style={{height: 'fit-content'}}>
                 <h2>Crear Nuevo Cliente</h2>
                 <form onSubmit={crearUsuarioCliente} className="import-form">
@@ -312,9 +294,7 @@ const AdminPanel = () => {
              </div>
           </div>
         ) : (
-          /* VISTAS: DASHBOARD / PELICULAS / SERIES */
           <>
-             {/* STATS (Solo en Dashboard) */}
              {vista === 'dashboard' && (
                 <div className="stats-grid">
                   <div className="stat-card"><div className="stat-icon-box icon-blue">🎬</div><div className="stat-info"><h3>Pelis</h3><p className="value">{stats.peliculas}</p></div></div>
@@ -346,7 +326,6 @@ const AdminPanel = () => {
                     </div>
                 </div>
                 
-                {/* IMPORTADOR (Visible en Dashboard o secciones de contenido) */}
                 <div className="section-card" style={{height:'fit-content'}}>
                     <h2>Importar desde TMDB</h2>
                     <form onSubmit={importarDesdeTMDB} className="import-form">

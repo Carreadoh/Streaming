@@ -37,15 +37,13 @@ const Catalogo = () => {
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
   
-  // Eliminamos el estado 'demoBloqueado' y su temporizador porque ya no restringimos por tiempo.
-  
   const playerRef = useRef(null);
   const [numTemporadas, setNumTemporadas] = useState([]); 
   const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  // --- LOGICA DE SESIÓN (Aquí es donde se controla la fecha) ---
+  // --- LOGICA DE SESIÓN  ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -237,7 +235,7 @@ const Catalogo = () => {
 
           <div style={{marginTop: '40px', fontSize: '11px', color: '#666'}}>
             Desarrollado por 
-            <a href="https://foxapps.vercel.app" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>
+            <a href="https://foxapps.lat" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>
               Foxapps
             </a>
           </div>

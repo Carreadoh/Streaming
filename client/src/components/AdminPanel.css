@@ -1,8 +1,8 @@
 :root {
-  --bg-dark: #09090b;       /* Fondo principal muy oscuro */
-  --card-bg: #18181b;       /* Fondo de tarjetas */
-  --sidebar-bg: #101012;    /* Fondo sidebar */
-  --primary: #6366f1;       /* Color Foxapps (Indigo/Violeta) */
+  --bg-dark: #09090b;   
+  --card-bg: #18181b;    
+  --sidebar-bg: #101012;   
+  --primary: #6366f1;      
   --primary-hover: #4f46e5;
   --text-main: #ffffff;
   --text-muted: #a1a1aa;
@@ -11,7 +11,6 @@
   --success: #22c55e;
 }
 
-/* --- LAYOUT GENERAL --- */
 .admin-layout {
   display: flex;
   height: 100vh;
@@ -21,7 +20,6 @@
   overflow: hidden;
 }
 
-/* --- SIDEBAR --- */
 .sidebar {
   width: 260px;
   background-color: var(--sidebar-bg);
@@ -91,14 +89,12 @@
   background-color: rgba(239, 68, 68, 0.1);
 }
 
-/* --- MAIN CONTENT --- */
 .main-content {
   flex: 1;
   overflow-y: auto;
   padding: 32px;
 }
 
-/* HEADER SUPERIOR */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -139,7 +135,6 @@
   font-size: 14px;
 }
 
-/* --- STATS GRID (Las 4 tarjetas de arriba) --- */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -188,20 +183,17 @@
   margin: 0;
 }
 
-/* Colores específicos para iconos */
 .icon-blue { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; }
 .icon-green { background-color: rgba(34, 197, 94, 0.1); color: #22c55e; }
 .icon-purple { background-color: rgba(168, 85, 247, 0.1); color: #a855f7; }
 .icon-orange { background-color: rgba(249, 115, 22, 0.1); color: #f97316; }
 
-/* --- DASHBOARD SPLIT (Gráfico + Importador) --- */
 .dashboard-split {
   display: grid;
-  grid-template-columns: 2fr 1fr; /* 2 partes tabla, 1 parte importador */
+  grid-template-columns: 2fr 1fr;
   gap: 24px;
 }
 
-/* SECCIONES GENÉRICAS */
 .section-card {
   background-color: var(--card-bg);
   border-radius: 16px;
@@ -219,7 +211,6 @@
 }
 .section-header h2 { font-size: 18px; font-weight: 600; margin: 0; }
 
-/* IMPORTADOR (Panel Derecho) */
 .import-form {
   display: flex;
   flex-direction: column;
@@ -269,7 +260,6 @@
   text-align: center;
 }
 
-/* TABLA (Panel Izquierdo) */
 .table-container {
   overflow-x: auto;
 }
@@ -323,7 +313,6 @@
 }
 .btn-icon:hover { color: var(--danger); }
 
-/* LOGIN SCREEN ESTILO DASHBOARD */
 .login-dashboard-bg {
   height: 100vh;
   width: 100vw;
@@ -363,7 +352,7 @@
 @media (max-width: 1024px) {
   .dashboard-split { grid-template-columns: 1fr; }
   .sidebar { width: 80px; padding: 16px 12px; }
-  .sidebar span { display: none; } /* Ocultar texto en tablet */
+  .sidebar span { display: none; }
   .logo-area { justify-content: center; }
   .logo-text { display: none; }
 }
