@@ -7,7 +7,7 @@ import axios from 'axios';
 import './AdminPanel.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const EMAIL_PERMITIDO = "admin@streamgo.com"; 
+const EMAIL_PERMITIDO = "admin@streamgo.lat"; 
 
 const firebaseConfig = {
   apiKey: "AIzaSyA1_Hd2K0xrkDc5ZZht-2WxTVE1hyWu04E",
