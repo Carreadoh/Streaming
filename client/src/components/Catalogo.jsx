@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import axios from 'axios';
 import Fila from './Fila';
 import './Catalogo.css';
-
-// --- NO IMPORTAMOS VIDSTACK AQUÍ PARA EVITAR ERRORES DE VITE ---
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
@@ -28,6 +26,7 @@ const Catalogo = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
+
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
@@ -36,11 +35,15 @@ const Catalogo = () => {
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
+  
   const [numTemporadas, setNumTemporadas] = useState([]); 
   const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
+  const playerContainerRef = useRef(null);
+
+  // --- LÓGICA DE SESIÓN ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -82,6 +85,7 @@ const Catalogo = () => {
     catch (error) { setErrorLogin("Credenciales incorrectas."); }
   };
 
+  // --- CARGA DE DATOS ---
   useEffect(() => {
     if (!usuario) return;
     const obtenerDatos = async () => {
@@ -105,11 +109,18 @@ const Catalogo = () => {
     obtenerDatos();
   }, [usuario]);
 
+  // --- SOLUCIÓN TÉCNICA REPRODUCTOR ---
   useEffect(() => {
-    if (item) document.body.classList.add('modal-abierto');
-    else document.body.classList.remove('modal-abierto');
-    return () => { document.body.classList.remove('modal-abierto'); };
-  }, [item]);
+    if (verPeliculaCompleta && item && playerContainerRef.current) {
+      const url = obtenerUrlVideo();
+      playerContainerRef.current.innerHTML = `
+        <media-player title="${item.titulo}" src="${url}" autoplay playsinline load="visible" crossorigin style="width: 100%; height: 100%; background-color: black;">
+          <media-provider></media-provider>
+          <media-video-layout></media-video-layout>
+        </media-player>
+      `;
+    }
+  }, [verPeliculaCompleta, item, capituloActual]);
 
   const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
     const agrupado = {};
@@ -169,11 +180,6 @@ const Catalogo = () => {
       const videosEs = response.data.results;
       let video = videosEs.find(v => v.site === "YouTube" && v.type === "Trailer");
       if (!video) video = videosEs.find(v => v.site === "YouTube" && v.type === "Teaser");
-      if (!video) {
-        const responseEn = await axios.get(`https://api.themoviedb.org/3/${tipoContenido}/${idTMDB}/videos`, { params: { api_key: TMDB_API_KEY } });
-        const videosEn = responseEn.data.results;
-        video = videosEn.find(v => v.site === "YouTube" && v.type === "Trailer");
-      }
       if (video) setTrailerKey(video.key);
     } catch (error) { console.error("Error buscando video:", error); }
   };
@@ -220,37 +226,20 @@ const Catalogo = () => {
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
   };
 
-  if (loadingAuth) {
-    return <div style={{height:'100vh', background:'#0f0f12', display:'flex', justifyContent:'center', alignItems:'center', color:'white'}}>Cargando...</div>;
-  }
+  if (loadingAuth) return <div className="loading-screen">Cargando...</div>;
 
   if (!usuario) {
     return (
       <div className="login-premium-bg">
         <div className="login-card">
-          <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}>
-             <img src="/logo.svg" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
-          </div>
+          <div className="logo-login"><img src="/logo.svg" alt="Logo" /></div>
           <h2 className="login-title">Bienvenido</h2>
-          <p className="login-subtitle">Ingresa tus credenciales</p>
           <form onSubmit={handleLogin}>
-            <div className="input-group">
-                <input type="email" className="login-input" placeholder="Correo electrónico" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="input-group">
-                <input type="password" className="login-input" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {errorLogin && <p style={{color: '#ef4444', fontSize: '13px', margin:'10px 0'}}>{errorLogin}</p>}
+            <input type="email" className="login-input" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input type="password" className="login-input" placeholder="Pass" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            {errorLogin && <p className="error-text">{errorLogin}</p>}
             <button type="submit" className="btn-login-premium">Acceder</button>
           </form>
-          <div className="login-footer">
-            ¿Sin cuenta? 
-            <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{color: '#818cf8', textDecoration: 'none', fontWeight:'bold', marginLeft:'5px'}}>Suscríbete aquí</a>
-          </div>
-          <div style={{marginTop: '40px', fontSize: '11px', color: '#666'}}>
-            Desarrollado por 
-            <a href="https://foxapps.lat" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>Foxapps</a>
-          </div>
         </div>
       </div>
     );
@@ -259,87 +248,31 @@ const Catalogo = () => {
   return (
     <div className="catalogo-container">
       <header className="header-container">
-        <div className="header-logo-wrapper">
-            <img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} />
-        </div>
+        <div className="header-logo-wrapper"><img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} /></div>
         <div className="profile-widget">
-          <div className="profile-info">
-             <span className="profile-name">Hola, {usuario.email.split('@')[0]}</span>
-             <span className="profile-status">Online</span>
-          </div>
-          <div className="profile-avatar-circle">
-             {usuario.email.charAt(0).toUpperCase()}
-          </div>
-          <span className="profile-arrow">▼</span>
-          <div className="dropdown-menu">
-             <div className="menu-item" style={{cursor:'default', borderBottom:'1px solid #333', paddingBottom:'10px', marginBottom:'5px'}}>{usuario.email}</div>
-             <button className="menu-item logout" onClick={() => getAuth().signOut()}>Cerrar Sesión</button>
-          </div>
+          <div className="profile-info"><span className="profile-name">Hola, {usuario.email.split('@')[0]}</span><span className="profile-status">Online</span></div>
+          <div className="profile-avatar-circle">{usuario.email.charAt(0).toUpperCase()}</div>
+          <div className="dropdown-menu"><button className="menu-item logout" onClick={() => getAuth().signOut()}>Cerrar Sesión</button></div>
         </div>
       </header>
 
       <div className="toolbar-container">
-        <div className="plataformas-list">
-          {PLATAFORMAS.map((plat) => (
-            <div key={plat.id} className={`plat-btn ${plataformaActiva === plat.id ? 'active' : ''}`} onClick={() => togglePlataforma(plat.id)} title={plat.id}>
-              <img src={plat.logo} alt={plat.id} />
-            </div>
-          ))}
-        </div>
-        <div className="search-inline">
-           <span className="search-icon">🔍</span>
-           <input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} />
-        </div>
+        <div className="plataformas-list">{PLATAFORMAS.map((plat) => (<div key={plat.id} className={`plat-btn ${plataformaActiva === plat.id ? 'active' : ''}`} onClick={() => togglePlataforma(plat.id)}><img src={plat.logo} alt={plat.id} /></div>))}</div>
+        <div className="search-inline"><input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} /></div>
       </div>
 
       <div className="filtros-tipo-container">
-        <button className={`btn-filtro ${tipoSeleccionado === 'todo' ? 'activo' : ''}`} onClick={() => handleTipoChange('todo')}>Todo</button>
-        <button className={`btn-filtro ${tipoSeleccionado === 'movie' ? 'activo' : ''}`} onClick={() => handleTipoChange('movie')}>Películas</button>
-        <button className={`btn-filtro ${tipoSeleccionado === 'serie' ? 'activo' : ''}`} onClick={() => handleTipoChange('serie')}>Series</button>
+        {['todo', 'movie', 'serie'].map(t => (<button key={t} className={`btn-filtro ${tipoSeleccionado === t ? 'activo' : ''}`} onClick={() => handleTipoChange(t)}>{t === 'todo' ? 'Todo' : t === 'movie' ? 'Películas' : 'Series'}</button>))}
       </div>
 
       <div className="filas-generos">
-        {Object.keys(itemsFiltrados).length > 0 ? (
-          <>
-            {itemsFiltrados["Estrenos"] && (!plataformaActiva || plataformaActiva === 'Cine') && (
-              <Fila key="Estrenos" titulo="🔥 Estrenos en Cine" peliculas={itemsFiltrados["Estrenos"]} onClickPelicula={abrirModal} />
-            )}
-            {Object.keys(itemsFiltrados).sort().map((genero) => {
-              if (genero === "Estrenos" && (!plataformaActiva || plataformaActiva === 'Cine')) return null;
-              return ( <Fila key={genero} titulo={genero} peliculas={itemsFiltrados[genero]} onClickPelicula={abrirModal} /> );
-            })}
-          </>
-        ) : (
-          <div style={{padding: '50px', textAlign: 'center', color: '#666'}}>{busqueda ? <p>Sin resultados</p> : <p>Cargando...</p>}</div>
-        )}
+        {Object.keys(itemsFiltrados).sort().map((genero) => (<Fila key={genero} titulo={genero} peliculas={itemsFiltrados[genero]} onClickPelicula={abrirModal} />))}
       </div>
 
-      {/* ======================================================== */}
-      {/* REPRODUCTOR USANDO WEB COMPONENTS (SIN IMPORTS EN EL JS) */}
-      {/* ======================================================== */}
       {verPeliculaCompleta && item && (
-        <div className="reproductor-overlay" style={{backgroundColor: 'black', position: 'fixed', inset: 0, zIndex: 1000}}>
-          <button 
-            className="btn-salir-cine" 
-            onClick={() => setVerPeliculaCompleta(false)}
-            style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 9999 }}
-          >
-            ← Volver
-          </button>
-          
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <media-player 
-              title={item.titulo} 
-              src={obtenerUrlVideo()} 
-              autoplay
-              aspect-ratio="16/9"
-              style={{ width: '100%', height: '100%' }}
-            >
-              <media-provider></media-provider>
-              {/* Esta etiqueta carga automáticamente los controles y el selector de audio */}
-              <media-video-layout></media-video-layout>
-            </media-player>
-          </div>
+        <div className="reproductor-overlay">
+          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
+          <div ref={playerContainerRef} className="player-wrapper-cine" />
         </div>
       )}
 
@@ -349,27 +282,31 @@ const Catalogo = () => {
             <div className="video-area">
               <button className="btn-cerrar" onClick={cerrarModal}>✕</button>
               {trailerKey ? (
-                <iframe 
-                  src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&loop=1&playlist=${trailerKey}`} 
-                  title="Trailer" 
-                  allow="autoplay; encrypted-media" 
-                  allowFullScreen 
-                  style={{width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0}}
-                />
+                <iframe src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0`} title="Trailer" allowFullScreen />
               ) : (
-                <div style={{backgroundImage: `url(${item.imagen_fondo})`, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center top'}} onClick={() => setVerPeliculaCompleta(true)} />
+                <div className="placeholder-img" style={{backgroundImage: `url(${item.imagen_fondo})`}} onClick={() => setVerPeliculaCompleta(true)} />
               )}
             </div>
             <div className="info-container">
               <div className="netflix-logo">{item.plataforma_origen?.toUpperCase()}</div>
               <h2 className="titulo-principal">{item.titulo}</h2>
-              <div className="meta-row"><span style={{color: '#46d369', fontWeight: 'bold'}}>98% para ti</span><span>{item.fecha_estreno?.split('-')[0]}</span><span className="hd-badge">HD</span>{item.tipo === 'serie' && <span>{numTemporadas.length} Temporadas</span>}</div>
-              <button className="btn-accion-full blanco" onClick={() => setVerPeliculaCompleta(true)}><span>▶</span> Reproducir</button>
+              <button className="btn-accion-full blanco" onClick={() => setVerPeliculaCompleta(true)}>▶ Reproducir</button>
               <p className="sinopsis">{item.descripcion}</p>
               {item.tipo === 'serie' && (
                 <div className="tabs-container">
-                  <div className="cabecera-episodios"><div className="tab-header">Episodios</div><select className="selector-temporada" value={temporadaSeleccionada} onChange={(e) => cargarEpisodiosDeTemporada(item.id_tmdb, e.target.value)}>{numTemporadas.map(num => (<option key={num} value={num}>Temporada {num}</option>))}</select></div>
-                  <div className="lista-episodios">{episodios.length > 0 ? episodios.map(ep => (<div className="episodio-item" key={ep.id} onClick={() => reproducirCapitulo(temporadaSeleccionada, ep.episode_number)}><div className="episodio-img-wrapper">{ep.still_path ? (<img src={`https://image.tmdb.org/t/p/w300${ep.still_path}`} alt={`Ep ${ep.episode_number}`} className="episodio-img"/>) : ( <div className="episodio-img" style={{background:'#333'}}></div> )}<div className="preview-play">▶</div></div><div className="episodio-info"><h4>{ep.episode_number}. {ep.name}</h4><span>{ep.runtime ? `${ep.runtime} min` : ''}</span><p style={{fontSize:'0.8rem', color:'#999', marginTop:5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>{ep.overview}</p></div></div>)) : (<p style={{color:'#666', padding:20}}>Cargando episodios...</p>)}</div>
+                  <div className="cabecera-episodios">
+                    <select className="selector-temporada" value={temporadaSeleccionada} onChange={(e) => cargarEpisodiosDeTemporada(item.id_tmdb, e.target.value)}>
+                      {numTemporadas.map(num => (<option key={num} value={num}>Temporada {num}</option>))}
+                    </select>
+                  </div>
+                  <div className="lista-episodios">
+                    {episodios.map(ep => (
+                      <div className="episodio-item" key={ep.id} onClick={() => reproducirCapitulo(temporadaSeleccionada, ep.episode_number)}>
+                        <div className="episodio-img-wrapper">{ep.still_path ? <img src={`https://image.tmdb.org/t/p/w300${ep.still_path}`} alt="ep" /> : <div className="no-img" />}</div>
+                        <div className="episodio-info"><h4>{ep.episode_number}. {ep.name}</h4><p>{ep.overview}</p></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
