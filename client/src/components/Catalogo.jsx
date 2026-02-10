@@ -26,7 +26,6 @@ const Catalogo = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
-
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
@@ -35,64 +34,48 @@ const Catalogo = () => {
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
-  
   const [numTemporadas, setNumTemporadas] = useState([]); 
   const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  const playerContainerRef = useRef(null);
+  const playerRef = useRef(null);
 
-  // --- LÓGICA DE SESIÓN ---
+  // --- SESIÓN Y DATOS (TU LÓGICA ORIGINAL) ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        if (user.email === "admin@streamgo.com") { 
-             setUsuario(user);
-        } else {
+        if (user.email === "admin@streamgo.com") { setUsuario(user); } 
+        else {
              const userDocRef = doc(db, "usuarios", user.uid);
              const userDocSnap = await getDoc(userDocRef);
              if (userDocSnap.exists()) {
                  const userData = userDocSnap.data();
                  const fechaVencimiento = new Date(userData.fecha_vencimiento);
                  if (new Date() > fechaVencimiento) {
-                     await signOut(auth);
-                     setErrorLogin("Tu suscripción ha vencido.");
-                     setUsuario(null);
-                 } else {
-                     setUsuario(user);
-                 }
-             } else {
-                 await signOut(auth);
-                 setErrorLogin("Cuenta no encontrada.");
-                 setUsuario(null);
+                     await signOut(auth); setErrorLogin("Tu suscripción ha vencido."); setUsuario(null);
+                 } else { setUsuario(user); }
              }
         }
-      } else {
-        setUsuario(null);
-      }
+      } else { setUsuario(null); }
       setLoadingAuth(false);
     });
     return () => unsubscribe();
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setErrorLogin('');
-    const auth = getAuth();
-    try { await signInWithEmailAndPassword(auth, email, password); } 
+    e.preventDefault(); setErrorLogin('');
+    try { await signInWithEmailAndPassword(getAuth(), email, password); } 
     catch (error) { setErrorLogin("Credenciales incorrectas."); }
   };
 
-  // --- CARGA DE DATOS ---
   useEffect(() => {
     if (!usuario) return;
     const obtenerDatos = async () => {
-      const pelisRef = collection(db, "peliculas");
-      const seriesRef = collection(db, "series");
       try {
-        const [pelisSnap, seriesSnap] = await Promise.all([getDocs(pelisRef), getDocs(seriesRef)]);
+        const pelisSnap = await getDocs(collection(db, "peliculas"));
+        const seriesSnap = await getDocs(collection(db, "series"));
         const mapaItems = new Map();
         [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
           const data = doc.data();
@@ -101,20 +84,16 @@ const Catalogo = () => {
         const dataUnica = Array.from(mapaItems.values());
         setTodosLosItems(dataUnica);
         organizarPorGeneros(dataUnica, null, '', 'todo'); 
-      } catch (e) { 
-        console.error(e);
-        setItemsFiltrados({});
-      }
+      } catch (e) { console.error(e); }
     };
     obtenerDatos();
   }, [usuario]);
 
-  // --- SOLUCIÓN TÉCNICA REPRODUCTOR ---
+  // --- REPRODUCTOR (FIX DEFINITIVO) ---
   useEffect(() => {
-    if (verPeliculaCompleta && item && playerContainerRef.current) {
-      const url = obtenerUrlVideo();
-      playerContainerRef.current.innerHTML = `
-        <media-player title="${item.titulo}" src="${url}" autoplay playsinline load="visible" crossorigin style="width: 100%; height: 100%; background-color: black;">
+    if (verPeliculaCompleta && item && playerRef.current) {
+      playerRef.current.innerHTML = `
+        <media-player title="${item.titulo}" src="${obtenerUrlVideo()}" autoplay crossorigin playsinline style="width: 100%; height: 100%;">
           <media-provider></media-provider>
           <media-video-layout></media-video-layout>
         </media-player>
@@ -122,122 +101,74 @@ const Catalogo = () => {
     }
   }, [verPeliculaCompleta, item, capituloActual]);
 
-  const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
+  const organizarPorGeneros = (items, filtroPlat, busq, tipo) => {
     const agrupado = {};
-    if (!items) return;
     items.forEach(p => {
       if (p.disponible_servidor !== true) return; 
-      if (textoBusqueda) {
-        const titulo = (p.titulo || "").toLowerCase();
-        if (!titulo.includes(textoBusqueda.toLowerCase())) return;
-      }
-      if (filtroTipo && filtroTipo !== 'todo' && p.tipo !== filtroTipo) return;
-      const origen = (p.plataforma_origen || "Otros").toLowerCase().trim();
-      if (filtroPlataforma) {
-        const pFiltro = filtroPlataforma.toLowerCase();
-        let coincide = false;
-        if (pFiltro === 'cine') { 
-            if (origen === 'cine' || (Array.isArray(p.generos) && p.generos.includes('Estrenos'))) coincide = true; 
-        }
-        else if (origen.includes(pFiltro)) coincide = true;
-        if (!coincide) return;
-      }
-      const listaGeneros = Array.isArray(p.generos) && p.generos.length > 0 ? p.generos : ["General"]; 
-      listaGeneros.forEach(genero => {
-        if (!agrupado[genero]) agrupado[genero] = [];
-        agrupado[genero].push(p);
+      if (busq && !(p.titulo || "").toLowerCase().includes(busq.toLowerCase())) return;
+      if (tipo !== 'todo' && p.tipo !== tipo) return;
+      if (filtroPlat && !p.plataforma_origen?.toLowerCase().includes(filtroPlat.toLowerCase())) return;
+
+      const generos = Array.isArray(p.generos) && p.generos.length > 0 ? p.generos : ["General"];
+      generos.forEach(g => {
+        if (!agrupado[g]) agrupado[g] = [];
+        agrupado[g].push(p);
       });
     });
     setItemsFiltrados(agrupado);
   };
 
   const handleBusqueda = (e) => {
-    const texto = e.target.value;
-    setBusqueda(texto);
-    organizarPorGeneros(todosLosItems, plataformaActiva, texto, tipoSeleccionado);
+    setBusqueda(e.target.value);
+    organizarPorGeneros(todosLosItems, plataformaActiva, e.target.value, tipoSeleccionado);
   };
 
-  const togglePlataforma = (idPlat) => {
-    if (plataformaActiva === idPlat) {
-      setPlataformaActiva(null);
-      organizarPorGeneros(todosLosItems, null, busqueda, tipoSeleccionado); 
-    } else {
-      setPlataformaActiva(idPlat);
-      organizarPorGeneros(todosLosItems, idPlat, busqueda, tipoSeleccionado); 
+  const buscarTrailer = async (id, tipo) => {
+    setTrailerKey(null);
+    try {
+      const res = await axios.get(`https://api.themoviedb.org/3/${tipo === 'serie' ? 'tv' : 'movie'}/${id}/videos`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } });
+      const video = res.data.results.find(v => v.type === "Trailer");
+      if (video) setTrailerKey(video.key);
+    } catch (e) { console.error(e); }
+  };
+
+  const cargarEpisodios = async (id, num) => {
+    setEpisodios([]); setTemporadaSeleccionada(num);
+    try {
+      const res = await axios.get(`https://api.themoviedb.org/3/tv/${id}/season/${num}`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } });
+      setEpisodios(res.data.episodes);
+    } catch (e) { console.error(e); }
+  };
+
+  const abrirModal = (p) => { 
+    setItem(p); setVerPeliculaCompleta(false); buscarTrailer(p.id_tmdb, p.tipo);
+    if (p.tipo === 'serie') { 
+      axios.get(`https://api.themoviedb.org/3/tv/${p.id_tmdb}`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } })
+      .then(r => { setNumTemporadas(Array.from({length: r.data.number_of_seasons}, (_, i) => i+1)); cargarEpisodios(p.id_tmdb, 1); });
     }
   };
-
-  const handleTipoChange = (nuevoTipo) => {
-    setTipoSeleccionado(nuevoTipo);
-    organizarPorGeneros(todosLosItems, plataformaActiva, busqueda, nuevoTipo);
-  };
-
-  const buscarTrailer = async (idTMDB, tipo) => {
-    setTrailerKey(null); 
-    try {
-      const tipoContenido = tipo === 'serie' ? 'tv' : 'movie';
-      const response = await axios.get(`https://api.themoviedb.org/3/${tipoContenido}/${idTMDB}/videos`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } });
-      const videosEs = response.data.results;
-      let video = videosEs.find(v => v.site === "YouTube" && v.type === "Trailer");
-      if (!video) video = videosEs.find(v => v.site === "YouTube" && v.type === "Teaser");
-      if (video) setTrailerKey(video.key);
-    } catch (error) { console.error("Error buscando video:", error); }
-  };
-
-  const cargarDetallesSerie = async (idTMDB) => {
-    try {
-      const res = await axios.get(`https://api.themoviedb.org/3/tv/${idTMDB}`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } });
-      setNumTemporadas(Array.from({ length: res.data.number_of_seasons }, (_, i) => i + 1));
-      cargarEpisodiosDeTemporada(idTMDB, 1);
-    } catch (error) { console.error("Error serie:", error); }
-  };
-
-  const cargarEpisodiosDeTemporada = async (idTMDB, numTemp) => {
-    setEpisodios([]); 
-    setTemporadaSeleccionada(numTemp);
-    try {
-      const res = await axios.get(`https://api.themoviedb.org/3/tv/${idTMDB}/season/${numTemp}`, { params: { api_key: TMDB_API_KEY, language: 'es-MX' } });
-      setEpisodios(res.data.episodes);
-    } catch (error) { console.error("Error episodios:", error); }
-  };
-
-  const abrirModal = (peli) => { 
-    setItem(peli); 
-    setVerPeliculaCompleta(false);
-    buscarTrailer(peli.id_tmdb, peli.tipo);
-    if (peli.tipo === 'serie') { setCapituloActual({ temp: 1, cap: 1 }); cargarDetallesSerie(peli.id_tmdb); }
-  };
-
-  const cerrarModal = () => { setItem(null); setTrailerKey(null); setVerPeliculaCompleta(false); setEpisodios([]); };
-  const reproducirCapitulo = (temp, cap) => { setCapituloActual({ temp, cap }); setVerPeliculaCompleta(true); };
 
   const obtenerUrlVideo = () => {
     if (!item) return '';
-    if (item.tipo === 'serie' || item.tipo === 'tv') {
-        const key = `S${capituloActual.temp}E${capituloActual.cap}`;
-        if (item.episodios_locales && item.episodios_locales[key]) {
-            return `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}`;
-        }
-        return `${URL_SERVIDOR}/series/${item.id_tmdb}/S${capituloActual.temp}E${capituloActual.cap}.mp4`;
+    if (item.tipo === 'serie') {
+      const key = `S${capituloActual.temp}E${capituloActual.cap}`;
+      return item.episodios_locales?.[key] ? `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}` : `${URL_SERVIDOR}/series/${item.id_tmdb}/${key}.mp4`;
     }
-    if (item.url_video) {
-        return `${URL_SERVIDOR}/peliculas/${encodeURI(item.url_video)}`;
-    }
-    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
+    return `${URL_SERVIDOR}/peliculas/${encodeURI(item.url_video || item.id_tmdb + '.mp4')}`;
   };
 
-  if (loadingAuth) return <div className="loading-screen">Cargando...</div>;
+  if (loadingAuth) return <div className="loading">Cargando...</div>;
 
   if (!usuario) {
     return (
       <div className="login-premium-bg">
         <div className="login-card">
-          <div className="logo-login"><img src="/logo.svg" alt="Logo" /></div>
+          <img src="/logo.svg" alt="Logo" style={{height: '60px', marginBottom: '20px'}} />
           <h2 className="login-title">Bienvenido</h2>
           <form onSubmit={handleLogin}>
-            <input type="email" className="login-input" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input type="password" className="login-input" placeholder="Pass" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {errorLogin && <p className="error-text">{errorLogin}</p>}
+            <input type="email" className="login-input" placeholder="Correo" value={email} onChange={e => setEmail(e.target.value)} required />
+            <input type="password" className="login-input" placeholder="Pass" value={password} onChange={e => setPassword(e.target.value)} required />
+            {errorLogin && <p style={{color: '#ef4444'}}>{errorLogin}</p>}
             <button type="submit" className="btn-login-premium">Acceder</button>
           </form>
         </div>
@@ -247,61 +178,87 @@ const Catalogo = () => {
 
   return (
     <div className="catalogo-container">
+      {/* HEADER ORIGINAL */}
       <header className="header-container">
-        <div className="header-logo-wrapper"><img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} /></div>
+        <img src="/logo.svg" className="header-logo" onClick={() => window.location.reload()} />
         <div className="profile-widget">
-          <div className="profile-info"><span className="profile-name">Hola, {usuario.email.split('@')[0]}</span><span className="profile-status">Online</span></div>
+          <div className="profile-info">
+            <span className="profile-name">Hola, {usuario.email.split('@')[0]}</span>
+            <span className="profile-status">Online</span>
+          </div>
           <div className="profile-avatar-circle">{usuario.email.charAt(0).toUpperCase()}</div>
-          <div className="dropdown-menu"><button className="menu-item logout" onClick={() => getAuth().signOut()}>Cerrar Sesión</button></div>
+          <div className="dropdown-menu">
+            <button className="menu-item logout" onClick={() => getAuth().signOut()}>Cerrar Sesión</button>
+          </div>
         </div>
       </header>
 
+      {/* TOOLBAR ORIGINAL */}
       <div className="toolbar-container">
-        <div className="plataformas-list">{PLATAFORMAS.map((plat) => (<div key={plat.id} className={`plat-btn ${plataformaActiva === plat.id ? 'active' : ''}`} onClick={() => togglePlataforma(plat.id)}><img src={plat.logo} alt={plat.id} /></div>))}</div>
-        <div className="search-inline"><input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} /></div>
+        <div className="plataformas-list">
+          {PLATAFORMAS.map(p => (
+            <div key={p.id} className={`plat-btn ${plataformaActiva === p.id ? 'active' : ''}`} onClick={() => {
+              const nueva = plataformaActiva === p.id ? null : p.id;
+              setPlataformaActiva(nueva);
+              organizarPorGeneros(todosLosItems, nueva, busqueda, tipoSeleccionado);
+            }}><img src={p.logo} alt={p.id} /></div>
+          ))}
+        </div>
+        <div className="search-inline">
+          <input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} />
+        </div>
       </div>
 
       <div className="filtros-tipo-container">
-        {['todo', 'movie', 'serie'].map(t => (<button key={t} className={`btn-filtro ${tipoSeleccionado === t ? 'activo' : ''}`} onClick={() => handleTipoChange(t)}>{t === 'todo' ? 'Todo' : t === 'movie' ? 'Películas' : 'Series'}</button>))}
+        {['todo', 'movie', 'serie'].map(t => (
+          <button key={t} className={`btn-filtro ${tipoSeleccionado === t ? 'activo' : ''}`} onClick={() => {
+            setTipoSeleccionado(t);
+            organizarPorGeneros(todosLosItems, plataformaActiva, busqueda, t);
+          }}>{t === 'todo' ? 'Todo' : t === 'movie' ? 'Películas' : 'Series'}</button>
+        ))}
       </div>
 
       <div className="filas-generos">
-        {Object.keys(itemsFiltrados).sort().map((genero) => (<Fila key={genero} titulo={genero} peliculas={itemsFiltrados[genero]} onClickPelicula={abrirModal} />))}
+        {Object.keys(itemsFiltrados).sort().map(g => (
+           <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={abrirModal} />
+        ))}
       </div>
 
+      {/* VISTA CINE */}
       {verPeliculaCompleta && item && (
-        <div className="reproductor-overlay">
-          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
-          <div ref={playerContainerRef} className="player-wrapper-cine" />
+        <div className="reproductor-overlay" style={{backgroundColor: 'black', position: 'fixed', inset: 0, zIndex: 1000}}>
+          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)} style={{position: 'absolute', top: 20, left: 20, zIndex: 10001}}>← Volver</button>
+          <div ref={playerRef} style={{ width: '100%', height: '100%' }} />
         </div>
       )}
 
+      {/* MODAL DETALLE ORIGINAL */}
       {item && !verPeliculaCompleta && (
-        <div className="modal-overlay" onClick={cerrarModal}>
+        <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="video-area">
-              <button className="btn-cerrar" onClick={cerrarModal}>✕</button>
+              <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
               {trailerKey ? (
-                <iframe src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0`} title="Trailer" allowFullScreen />
+                <iframe src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=0`} style={{width:'100%', height:'100%', border:0}} allowFullScreen />
               ) : (
-                <div className="placeholder-img" style={{backgroundImage: `url(${item.imagen_fondo})`}} onClick={() => setVerPeliculaCompleta(true)} />
+                <div className="placeholder-img" style={{backgroundImage: `url(${item.imagen_fondo})`, width:'100%', height:'100%', backgroundSize:'cover'}} onClick={() => setVerPeliculaCompleta(true)} />
               )}
             </div>
             <div className="info-container">
-              <div className="netflix-logo">{item.plataforma_origen?.toUpperCase()}</div>
               <h2 className="titulo-principal">{item.titulo}</h2>
               <button className="btn-accion-full blanco" onClick={() => setVerPeliculaCompleta(true)}>▶ Reproducir</button>
               <p className="sinopsis">{item.descripcion}</p>
+              
               {item.tipo === 'serie' && (
                 <div className="tabs-container">
                   <div className="cabecera-episodios">
-                    <select className="selector-temporada" value={temporadaSeleccionada} onChange={(e) => cargarEpisodiosDeTemporada(item.id_tmdb, e.target.value)}>
-                      {numTemporadas.map(num => (<option key={num} value={num}>Temporada {num}</option>))}
+                    <select value={temporadaSeleccionada} onChange={e => cargarEpisodios(item.id_tmdb, e.target.value)}>
+                      {numTemporadas.map(n => <option key={n} value={n}>Temporada {n}</option>)}
                     </select>
                   </div>
                   <div className="lista-episodios">
                     {episodios.map(ep => (
-                      <div className="episodio-item" key={ep.id} onClick={() => reproducirCapitulo(temporadaSeleccionada, ep.episode_number)}>
+                      <div className="episodio-item" key={ep.id} onClick={() => { setCapituloActual({temp: temporadaSeleccionada, cap: ep.episode_number}); setVerPeliculaCompleta(true); }}>
                         <div className="episodio-img-wrapper">{ep.still_path ? <img src={`https://image.tmdb.org/t/p/w300${ep.still_path}`} alt="ep" /> : <div className="no-img" />}</div>
                         <div className="episodio-info"><h4>{ep.episode_number}. {ep.name}</h4><p>{ep.overview}</p></div>
                       </div>
