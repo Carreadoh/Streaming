@@ -11,7 +11,7 @@ const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 // --- CONFIGURACIÓN DE TU SERVIDOR (NGINX) ---
 // Cambia esto por la IP o Dominio de tu servidor de 70TB
 // Ejemplo: 'http://192.168.1.50' o 'https://media.tudominio.com'
-const URL_SERVIDOR = 'http://65.109.146.153';
+const URL_SERVIDOR = 'https://cine.neveus.lat';
 
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
