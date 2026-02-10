@@ -252,4 +252,37 @@ body.modal-abierto { overflow: hidden !important; height: 100vh; }
     width: 65px; /* Un poco menos exagerado en móvil */
     height: 65px;
   }
+  
+  .reproductor-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: black;
+    z-index: 9999; /* Asegúrate que esté MUY por encima de todo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+  .reproductor-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      z-index: 9999; /* Asegúrate que esté MUY por encima de todo */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .reproductor-modal media-player,
+  .reproductor-modal .vds-player {
+      width: 100%;
+      max-width: 1200px; /* Opcional, para que no se estire infinito en monitores */
+      aspect-ratio: 16/9;
+  }
+
 }

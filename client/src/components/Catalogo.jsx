@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import axios from 'axios';
 import Fila from './Fila';
+import VideoPlayer from './VideoPlayer'; // Asegúrate de tener aquí el código de Plyr+HLS
 import './Catalogo.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
@@ -26,22 +27,23 @@ const Catalogo = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
+  
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
   const [tipoSeleccionado, setTipoSeleccionado] = useState('todo'); 
   const [busqueda, setBusqueda] = useState('');
+  
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
+  
   const [numTemporadas, setNumTemporadas] = useState([]); 
   const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  const playerRef = useRef(null);
-
-  // --- SESIÓN Y DATOS (TU LÓGICA ORIGINAL) ---
+  // --- SESIÓN Y DATOS ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -63,6 +65,16 @@ const Catalogo = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // Bloqueo de scroll mejorado para modo cine
+  useEffect(() => {
+    if (verPeliculaCompleta) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [verPeliculaCompleta]);
 
   const handleLogin = async (e) => {
     e.preventDefault(); setErrorLogin('');
@@ -88,18 +100,6 @@ const Catalogo = () => {
     };
     obtenerDatos();
   }, [usuario]);
-
-  // --- REPRODUCTOR (FIX DEFINITIVO) ---
-  useEffect(() => {
-    if (verPeliculaCompleta && item && playerRef.current) {
-      playerRef.current.innerHTML = `
-        <media-player title="${item.titulo}" src="${obtenerUrlVideo()}" autoplay crossorigin playsinline style="width: 100%; height: 100%;">
-          <media-provider></media-provider>
-          <media-video-layout></media-video-layout>
-        </media-player>
-      `;
-    }
-  }, [verPeliculaCompleta, item, capituloActual]);
 
   const organizarPorGeneros = (items, filtroPlat, busq, tipo) => {
     const agrupado = {};
@@ -148,13 +148,21 @@ const Catalogo = () => {
     }
   };
 
+  // --- LÓGICA DE URL DE VIDEO (HLS ACTIVADO) ---
   const obtenerUrlVideo = () => {
     if (!item) return '';
+    
+    // Series (Mantenemos lógica actual, o se puede adaptar a HLS si también tienes carpetas)
     if (item.tipo === 'serie') {
       const key = `S${capituloActual.temp}E${capituloActual.cap}`;
-      return item.episodios_locales?.[key] ? `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}` : `${URL_SERVIDOR}/series/${item.id_tmdb}/${key}.mp4`;
+      return item.episodios_locales?.[key] 
+        ? `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}` 
+        : `${URL_SERVIDOR}/series/${item.id_tmdb}/${key}.mp4`;
     }
-    return `${URL_SERVIDOR}/peliculas/${encodeURI(item.url_video || item.id_tmdb + '.mp4')}`;
+
+    // PELÍCULAS: Forzar ruta a carpeta HLS
+    // Estructura: /peliculas/[ID_TMDB]/master.m3u8
+    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
   };
 
   if (loadingAuth) return <div className="loading">Cargando...</div>;
@@ -178,10 +186,12 @@ const Catalogo = () => {
 
   return (
     <div className="catalogo-container">
-      {/* HEADER ORIGINAL */}
-      <header className="header-container">
-        <img src="/logo.svg" className="header-logo" onClick={() => window.location.reload()} />
-        <div className="profile-widget">
+      <header className="header-container" style={{position: 'relative', justifyContent: 'space-between'}}>
+        <div style={{width: '200px', display: 'none', visibility: 'hidden'}} className="desktop-spacer"></div>
+        <div style={{position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center'}}>
+            <img src="/logo.svg" className="header-logo" onClick={() => window.location.reload()} style={{cursor: 'pointer', height: '40px'}} />
+        </div>
+        <div className="profile-widget" style={{marginLeft: 'auto', zIndex: 2}}>
           <div className="profile-info">
             <span className="profile-name">Hola, {usuario.email.split('@')[0]}</span>
             <span className="profile-status">Online</span>
@@ -193,7 +203,6 @@ const Catalogo = () => {
         </div>
       </header>
 
-      {/* TOOLBAR ORIGINAL */}
       <div className="toolbar-container">
         <div className="plataformas-list">
           {PLATAFORMAS.map(p => (
@@ -224,15 +233,39 @@ const Catalogo = () => {
         ))}
       </div>
 
-      {/* VISTA CINE */}
+      {/* REPRODUCTOR PLYR MODERNO */}
       {verPeliculaCompleta && item && (
-        <div className="reproductor-overlay" style={{backgroundColor: 'black', position: 'fixed', inset: 0, zIndex: 1000}}>
-          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)} style={{position: 'absolute', top: 20, left: 20, zIndex: 10001}}>← Volver</button>
-          <div ref={playerRef} style={{ width: '100%', height: '100%' }} />
+        <div className="reproductor-overlay" 
+            style={{
+              position: 'fixed', inset: 0, width: '100vw', height: '100vh',
+              backgroundColor: 'black', zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden'
+            }}>
+          
+          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)} 
+            style={{
+              position: 'absolute', top: 30, left: 30, zIndex: 10002,
+              background: 'rgba(0,0,0,0.6)', 
+              color: 'white', 
+              border: '1px solid rgba(255,255,255,0.3)', 
+              padding: '10px 20px', 
+              fontSize: '16px', 
+              borderRadius: '8px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold',
+              backdropFilter: 'blur(4px)'
+            }}>
+            ← Volver
+          </button>
+          
+          <div style={{ width: '100%', height: '100%' }}>
+            <VideoPlayer src={obtenerUrlVideo()} />
+          </div>
         </div>
       )}
 
-      {/* MODAL DETALLE ORIGINAL */}
+      {/* MODAL DETALLE */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
