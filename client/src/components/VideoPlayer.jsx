@@ -1,139 +1,115 @@
 import React, { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import Plyr from 'plyr';
-// Recuerda: El CSS de Plyr ya está en el index.html
+// Asegurate de tener el CSS en el index.html: <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 
 const VideoPlayer = ({ src }) => {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const playerRef = useRef(null);
 
+  // --- Función auxiliar para sincronizar HLS con Plyr ---
+  // Toma las pistas de HLS y las convierte al formato que Plyr necesita para mostrar el menú
+  const updatePlyrSource = (hls, player, videoElement) => {
+    if (!hls.audioTracks || hls.audioTracks.length === 0) return;
+
+    const audioTracksPlyr = hls.audioTracks.map((track, index) => ({
+      label: track.name || `Audio ${index + 1}`, // Nombre visible (ej: Espanol)
+      language: track.lang || `lang${index}`,    // Código interno (ej: spa)
+      active: track.default, // Si es el por defecto
+    }));
+
+    // Inyectamos la fuente nuevamente, ahora con las pistas de audio explícitas
+    player.source = {
+      type: 'video',
+      title: 'Pelicula',
+      sources: [{ src: src, type: 'application/x-mpegURL' }],
+      // Aquí está la magia: le pasamos las pistas a Plyr
+      tracks: audioTracksPlyr, 
+    };
+
+    // IMPORTANTE: Sincronizar el evento de cambio de Plyr hacia HLS.js
+    player.on('languagechange', () => {
+       // Buscamos el índice de la pista HLS que coincide con el idioma elegido en Plyr
+       // Usamos una pequeña demora porque Plyr tarda unos ms en actualizar su estado interno
+       setTimeout(() => {
+          const selectedLang = player.language;
+          const hlsIndex = hls.audioTracks.findIndex(t => t.lang === selectedLang);
+          if (hlsIndex !== -1) {
+             hls.audioTrack = hlsIndex;
+             console.log(`🔊 Audio cambiado a pista HLS: ${hlsIndex} (${selectedLang})`);
+          }
+       }, 50);
+    });
+  };
+
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
-    // Configuración de Plyr
+    // --- 1. Configuración Visual Base de Plyr ---
     const plyrOptions = {
-      controls: [
-        'play-large', 'play', 'progress', 'current-time', 
-        'mute', 'volume', 'settings', 'fullscreen'
-      ],
-      // IMPORTANTE: 'audio' debe estar aquí
-      settings: ['audio', 'quality', 'speed'], 
+      controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen'],
+      settings: ['audio', 'quality', 'speed'], // 'audio' debe estar aquí
       i18n: {
-        restart: 'Reiniciar',
-        play: 'Reproducir',
-        pause: 'Pausar',
-        settings: 'Configuración',
-        audio: 'Idiomas', // Nombre visible en el menú
-        quality: 'Calidad',
-        speed: 'Velocidad',
+        restart: 'Reiniciar', play: 'Reproducir', pause: 'Pausar', settings: 'Ajustes',
+        audio: 'Idioma', quality: 'Calidad', speed: 'Velocidad',
       },
       autoplay: true,
     };
 
-    // --- LÓGICA DE STREAMING (HLS) ---
+    // Inicializamos Plyr INMEDIATAMENTE para tener UI (sin audio tracks aún)
+    if (!playerRef.current) {
+      playerRef.current = new Plyr(video, plyrOptions);
+    }
+    const player = playerRef.current;
+
+
+    // --- 2. Lógica HLS ---
     if (Hls.isSupported() && src.includes('.m3u8')) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-      
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
       hlsRef.current = hls;
       hls.loadSource(src);
       hls.attachMedia(video);
 
-      // EVENTO CLAVE: Se dispara cuando HLS leyó el archivo y encontró los audios
+      // EVENTO CLAVE: Cuando HLS lee el mapa y encuentra los audios
       hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-        console.log("Audios encontrados:", hls.audioTracks);
-
-        // 1. Inicializamos Plyr AHORA (que ya sabemos qué audios hay)
-        if (!playerRef.current) {
-          const player = new Plyr(video, plyrOptions);
-          playerRef.current = player;
-          
-          // 2. Hack para conectar la selección de Plyr con HLS
-          // Plyr a veces no cambia el audio de HLS automáticamente, así que lo forzamos:
-          player.on('languagechange', () => {
-             // Buscamos qué idioma eligió el usuario en Plyr
-             // Nota: Plyr usa el atributo 'srclang' o el nombre
-             setTimeout(() => {
-                const currentTrackIndex = hls.audioTrack;
-                console.log("Audio cambiado en HLS a pista:", currentTrackIndex);
-             }, 100);
-          });
-        }
-        
-        // Intentar reproducir
-        video.play().catch(e => console.log("Autoplay prevenido:", e));
+        console.log("✅ HLS cargado. Audios encontrados:", hls.audioTracks);
+        // Llamamos a la función mágica que conecta los audios a Plyr
+        updatePlyrSource(hls, player, video);
+        video.play().catch(e => console.log("Autoplay bloqueado:", e));
       });
 
-      // Manejo de errores
-      hls.on(Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
-              break;
-            default:
-              hls.destroy();
-              break;
-          }
-        }
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (data.fatal) hls.destroy();
       });
 
     } else {
-      // Caso MP4 simple (No streaming)
+      // Caso MP4 nativo
       video.src = src;
-      playerRef.current = new Plyr(video, plyrOptions);
     }
 
     // Limpieza
     return () => {
       if (hlsRef.current) hlsRef.current.destroy();
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
+      if (playerRef.current) { playerRef.current.destroy(); playerRef.current = null; }
     };
   }, [src]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      {/* Dejamos 'controls' activado aquí para que, mientras HLS carga (esa fracción de segundo),
-         se vea el reproductor nativo y no una pantalla negra vacía.
-         En cuanto Plyr carga, reemplaza estos controles.
-      */}
-      <video
-        ref={videoRef}
-        className="plyr-react plyr"
-        playsInline
-        controls 
-        crossOrigin="anonymous"
-        style={{ width: '100%', height: '100%' }}
-      />
+      <video ref={videoRef} className="plyr-react plyr" playsInline controls crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       
       <style>{`
-        :root {
-          --plyr-color-main: #e50914; 
-          --plyr-video-control-color: #ffffff;
-          --plyr-menu-background: rgba(20, 20, 20, 0.95);
-          --plyr-menu-color: #fff;
-        }
-        .plyr__control--overlaid-action {
-           background: rgba(229, 9, 20, 0.8);
-           transform: scale(1.1);
-        }
-        .plyr__control--overlaid-action:hover {
-           background: #e50914;
-        }
-        /* Ajuste de menú */
-        .plyr__menu__container {
-            bottom: 60px !important;
-        }
+        :root { --plyr-color-main: #e50914; --plyr-menu-background: rgba(20, 20, 20, 0.95); --plyr-menu-color: #fff; }
+        .plyr__control--overlaid-action { background: rgba(229, 9, 20, 0.8); transform: scale(1.1); }
+        .plyr__control--overlaid-action:hover { background: #e50914; }
+        .plyr { width: 100%; height: 100%; }
+        /* HE ELIMINADO LA LÍNEA QUE ROMPÍA EL MENÚ (.plyr__menu__container { bottom: ... })
+           Plyr ahora calculará la posición automáticamente hacia arriba.
+        */
       `}</style>
     </div>
   );
