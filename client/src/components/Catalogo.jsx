@@ -7,7 +7,11 @@ import Fila from './Fila';
 import './Catalogo.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const PROVEEDOR_BASE = 'https://vidsrc.xyz/embed'; 
+
+// --- CONFIGURACIÓN DE TU SERVIDOR (NGINX) ---
+// Cambia esto por la IP o Dominio de tu servidor de 70TB
+// Ejemplo: 'http://192.168.1.50' o 'https://media.tudominio.com'
+const URL_SERVIDOR = 'http://65.109.146.153';
 
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
@@ -20,7 +24,6 @@ const PLATAFORMAS = [
   { id: 'Cine', logo: 'https://cdn-icons-png.flaticon.com/512/3163/3163508.png' },
 ];
 
-
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -32,6 +35,10 @@ const Catalogo = () => {
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
+  
+  // Estado para filtro de tipo
+  const [tipoSeleccionado, setTipoSeleccionado] = useState('todo'); // 'todo', 'movie', 'serie'
+
   const [busqueda, setBusqueda] = useState('');
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
@@ -43,19 +50,18 @@ const Catalogo = () => {
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  // --- LOGICA DE SESIÓN  ---
+  // --- LOGICA DE SESIÓN ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        if (user.email === "admin@streamgo.com") { // Corregido admin email según tu código
+        if (user.email === "admin@streamgo.com") { 
              setUsuario(user);
         } else {
              const userDocRef = doc(db, "usuarios", user.uid);
              const userDocSnap = await getDoc(userDocRef);
              if (userDocSnap.exists()) {
                  const userData = userDocSnap.data();
-                 // AQUÍ ESTÁ LA RESTRICCIÓN REAL: Si la fecha pasó, se cierra la sesión.
                  const fechaVencimiento = new Date(userData.fecha_vencimiento);
                  if (new Date() > fechaVencimiento) {
                      await signOut(auth);
@@ -101,7 +107,8 @@ const Catalogo = () => {
         });
         const dataUnica = Array.from(mapaItems.values());
         setTodosLosItems(dataUnica);
-        organizarPorGeneros(dataUnica, null, ''); 
+        // Inicializar con 'todo'
+        organizarPorGeneros(dataUnica, null, '', 'todo'); 
       } catch (e) { console.error(e); }
     };
     obtenerDatos();
@@ -113,14 +120,22 @@ const Catalogo = () => {
     return () => { document.body.classList.remove('modal-abierto'); };
   }, [item]);
 
-  const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda) => {
+  const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
     const agrupado = {};
     items.forEach(p => {
+      // 1. Filtro de búsqueda
       if (textoBusqueda) {
         const titulo = p.titulo.toLowerCase();
         const busquedaLower = textoBusqueda.toLowerCase();
         if (!titulo.includes(busquedaLower)) return;
       }
+
+      // 2. Filtro de Tipo (Pelicula vs Serie)
+      if (filtroTipo && filtroTipo !== 'todo') {
+        if (p.tipo !== filtroTipo) return;
+      }
+
+      // 3. Filtro de Plataforma
       const origen = (p.plataforma_origen || "Otros").toLowerCase().trim();
       if (filtroPlataforma) {
         const pFiltro = filtroPlataforma.toLowerCase();
@@ -131,6 +146,8 @@ const Catalogo = () => {
         else { if (origen.includes(pFiltro)) coincide = true; }
         if (!coincide) return;
       }
+
+      // Agrupación
       let listaGeneros = p.generos && p.generos.length > 0 ? p.generos : ["General"]; 
       listaGeneros.forEach(genero => {
         if (!agrupado[genero]) agrupado[genero] = [];
@@ -143,17 +160,22 @@ const Catalogo = () => {
   const handleBusqueda = (e) => {
     const texto = e.target.value;
     setBusqueda(texto);
-    organizarPorGeneros(todosLosItems, plataformaActiva, texto);
+    organizarPorGeneros(todosLosItems, plataformaActiva, texto, tipoSeleccionado);
   };
 
   const togglePlataforma = (idPlat) => {
     if (plataformaActiva === idPlat) {
       setPlataformaActiva(null);
-      organizarPorGeneros(todosLosItems, null, busqueda); 
+      organizarPorGeneros(todosLosItems, null, busqueda, tipoSeleccionado); 
     } else {
       setPlataformaActiva(idPlat);
-      organizarPorGeneros(todosLosItems, idPlat, busqueda); 
+      organizarPorGeneros(todosLosItems, idPlat, busqueda, tipoSeleccionado); 
     }
+  };
+
+  const handleTipoChange = (nuevoTipo) => {
+    setTipoSeleccionado(nuevoTipo);
+    organizarPorGeneros(todosLosItems, plataformaActiva, busqueda, nuevoTipo);
   };
 
   const buscarTrailer = async (idTMDB, tipo) => {
@@ -200,6 +222,32 @@ const Catalogo = () => {
   const cerrarModal = () => { setItem(null); setTrailerKey(null); setVerPeliculaCompleta(false); setEpisodios([]); };
   const reproducirCapitulo = (temp, cap) => { setCapituloActual({ temp, cap }); setVerPeliculaCompleta(true); };
 
+  // --- LÓGICA DE URL INTELIGENTE (Script Indexador + NGINX) ---
+  const obtenerUrlVideo = () => {
+    if (!item) return '';
+
+    // 1. Caso SERIES
+    if (item.tipo === 'serie' || item.tipo === 'tv') {
+        const key = `S${capituloActual.temp}E${capituloActual.cap}`;
+        
+        if (item.episodios_locales && item.episodios_locales[key]) {
+            return `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}`;
+        }
+        
+        // Fallback: Si no está indexado, intenta adivinar (útil si la carpeta está limpia)
+        return `${URL_SERVIDOR}/series/${item.id_tmdb}/S${capituloActual.temp}E${capituloActual.cap}.mp4`;
+    }
+
+    // 2. Caso PELÍCULAS
+    if (item.url_video) {
+        // Si el script guardó la ruta (ej: "Peliculas/Avatar.2009.mp4")
+        return `${URL_SERVIDOR}/peliculas/${encodeURI(item.url_video)}`;
+    }
+    
+    // Fallback películas
+    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
+  };
+
   if (loadingAuth) {
     return <div style={{height:'100vh', background:'#0f0f12', display:'flex', justifyContent:'center', alignItems:'center', color:'white'}}>Cargando...</div>;
   }
@@ -209,14 +257,11 @@ const Catalogo = () => {
     return (
       <div className="login-premium-bg">
         <div className="login-card">
-          
           <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}>
              <img src="/logo.svg" alt="Logo" style={{height: '60px', objectFit: 'contain'}} />
           </div>
-          
           <h2 className="login-title">Bienvenido</h2>
           <p className="login-subtitle">Ingresa tus credenciales</p>
-          
           <form onSubmit={handleLogin}>
             <div className="input-group">
                 <input type="email" className="login-input" placeholder="Correo electrónico" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -227,19 +272,14 @@ const Catalogo = () => {
             {errorLogin && <p style={{color: '#ef4444', fontSize: '13px', margin:'10px 0'}}>{errorLogin}</p>}
             <button type="submit" className="btn-login-premium">Acceder</button>
           </form>
-          
           <div className="login-footer">
             ¿Sin cuenta? 
             <a href="https://wa.me/5491124023668" target="_blank" rel="noopener noreferrer" style={{color: '#818cf8', textDecoration: 'none', fontWeight:'bold', marginLeft:'5px'}}>Suscríbete aquí</a>
           </div>
-
           <div style={{marginTop: '40px', fontSize: '11px', color: '#666'}}>
             Desarrollado por 
-            <a href="https://foxapps.lat" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>
-              Foxapps
-            </a>
+            <a href="https://foxapps.lat" target="_blank" rel="noopener noreferrer" style={{color: '#888', textDecoration: 'none', fontWeight:'bold', marginLeft: '4px'}}>Foxapps</a>
           </div>
-
         </div>
       </div>
     );
@@ -254,7 +294,6 @@ const Catalogo = () => {
         <div className="header-logo-wrapper">
             <img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} />
         </div>
-        
         <div className="profile-widget">
           <div className="profile-info">
              <span className="profile-name">Hola, {usuario.email.split('@')[0]}</span>
@@ -264,7 +303,6 @@ const Catalogo = () => {
              {usuario.email.charAt(0).toUpperCase()}
           </div>
           <span className="profile-arrow">▼</span>
-
           <div className="dropdown-menu">
              <div className="menu-item" style={{cursor:'default', borderBottom:'1px solid #333', paddingBottom:'10px', marginBottom:'5px'}}>{usuario.email}</div>
              <button className="menu-item logout" onClick={() => getAuth().signOut()}>Cerrar Sesión</button>
@@ -274,6 +312,7 @@ const Catalogo = () => {
 
       {/* TOOLBAR */}
       <div className="toolbar-container">
+        {/* LISTA DE PLATAFORMAS */}
         <div className="plataformas-list">
           {PLATAFORMAS.map((plat) => (
             <div key={plat.id} className={`plat-btn ${plataformaActiva === plat.id ? 'active' : ''}`} onClick={() => togglePlataforma(plat.id)} title={plat.id}>
@@ -281,10 +320,19 @@ const Catalogo = () => {
             </div>
           ))}
         </div>
+
+        {/* BUSCADOR */}
         <div className="search-inline">
            <span className="search-icon">🔍</span>
            <input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} />
         </div>
+      </div>
+
+      {/* FILTRO TIPO (PELICULAS / SERIES) */}
+      <div className="filtros-tipo-container">
+        <button className={`btn-filtro ${tipoSeleccionado === 'todo' ? 'activo' : ''}`} onClick={() => handleTipoChange('todo')}>Todo</button>
+        <button className={`btn-filtro ${tipoSeleccionado === 'movie' ? 'activo' : ''}`} onClick={() => handleTipoChange('movie')}>Películas</button>
+        <button className={`btn-filtro ${tipoSeleccionado === 'serie' ? 'activo' : ''}`} onClick={() => handleTipoChange('serie')}>Series</button>
       </div>
 
       <div className="filas-generos">
@@ -307,8 +355,22 @@ const Catalogo = () => {
         <div className="reproductor-overlay" ref={playerRef}>
           <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           
-          {/* Aquí se reproduce directamente sin bloqueo de tiempo */}
-          <iframe src={item.tipo === 'serie' ? `${PROVEEDOR_BASE}/tv/${item.id_tmdb}/${capituloActual.temp}/${capituloActual.cap}` : `${PROVEEDOR_BASE}/movie/${item.id_tmdb}`} title="Pelicula Completa" allow="autoplay; fullscreen" style={{ width: '100%', height: '100%', border: 'none' }} />
+          {/* REPRODUCTOR NATIVO CONECTADO A TU SERVIDOR */}
+          <video 
+            controls 
+            autoPlay 
+            className="video-player-nativo"
+            style={{ width: '100%', height: '100%', outline: 'none', backgroundColor: 'black' }}
+            onError={(e) => console.log("Error cargando video. URL intentada:", e.target.src)}
+          >
+            <source src={obtenerUrlVideo()} type="video/mp4" />
+            <source src={obtenerUrlVideo()} type="video/webm" />
+            <source src={obtenerUrlVideo()} type="video/ogg" />
+            <p style={{color:'white', padding: 20}}>
+               El formato de video no es compatible con el navegador o el archivo no se encuentra en el servidor.
+            </p>
+          </video>
+
         </div>
       )}
 
