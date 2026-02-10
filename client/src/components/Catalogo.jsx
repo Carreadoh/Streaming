@@ -120,10 +120,11 @@ const Catalogo = () => {
     return () => { document.body.classList.remove('modal-abierto'); };
   }, [item]);
 
-  const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
+const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
     const agrupado = {};
     items.forEach(p => {
-      // 1. Filtro de búsqueda
+      if (!p.disponible_servidor) return; 
+
       if (textoBusqueda) {
         const titulo = p.titulo.toLowerCase();
         const busquedaLower = textoBusqueda.toLowerCase();
