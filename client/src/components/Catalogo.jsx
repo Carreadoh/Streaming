@@ -96,21 +96,28 @@ const Catalogo = () => {
   useEffect(() => {
     if (!usuario) return;
     const obtenerDatos = async () => {
-      const pelisRef = collection(db, "peliculas");
-      const seriesRef = collection(db, "series");
-      try {
-        const [pelisSnap, seriesSnap] = await Promise.all([getDocs(pelisRef), getDocs(seriesRef)]);
-        const mapaItems = new Map();
-        [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
-          const data = doc.data();
-          mapaItems.set(data.id_tmdb, { id: doc.id, ...data });
-        });
-        const dataUnica = Array.from(mapaItems.values());
-        setTodosLosItems(dataUnica);
-        // Inicializar con 'todo'
-        organizarPorGeneros(dataUnica, null, '', 'todo'); 
-      } catch (e) { console.error(e); }
-    };
+  const pelisRef = collection(db, "peliculas");
+  const seriesRef = collection(db, "series");
+  try {
+    const [pelisSnap, seriesSnap] = await Promise.all([getDocs(pelisRef), getDocs(seriesRef)]);
+    const mapaItems = new Map();
+    [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
+      const data = doc.data();
+      mapaItems.set(data.id_tmdb, { id: doc.id, ...data });
+    });
+    const dataUnica = Array.from(mapaItems.values());
+    setTodosLosItems(dataUnica);
+    
+    // Llamamos a organizar
+    organizarPorGeneros(dataUnica, null, '', 'todo'); 
+    
+    // OPCIONAL: Si quieres forzar que deje de cargar aunque esté vacío:
+    // setLoadingAuth(false); // Esto ya ocurre en el onAuthStateChanged, así que está bien.
+  } catch (e) { 
+    console.error(e);
+    setItemsFiltrados({}); // Evita el cuelgue si falla la conexión
+  }
+};
     obtenerDatos();
   }, [usuario]);
 
@@ -122,41 +129,46 @@ const Catalogo = () => {
 
 const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
     const agrupado = {};
+    
+    if (!items) return;
+
     items.forEach(p => {
-      if (!p.disponible_servidor) return; 
+      // --- FILTRO ESTRICTO ---
+      // Solo permitimos lo que el script de sincronización marcó como disponible
+      if (p.disponible_servidor !== true) return; 
 
+      // Filtro de Búsqueda
       if (textoBusqueda) {
-        const titulo = p.titulo.toLowerCase();
-        const busquedaLower = textoBusqueda.toLowerCase();
-        if (!titulo.includes(busquedaLower)) return;
+        const titulo = (p.titulo || "").toLowerCase();
+        if (!titulo.includes(textoBusqueda.toLowerCase())) return;
       }
 
-      // 2. Filtro de Tipo (Pelicula vs Serie)
-      if (filtroTipo && filtroTipo !== 'todo') {
-        if (p.tipo !== filtroTipo) return;
-      }
+      // Filtro de Tipo
+      if (filtroTipo && filtroTipo !== 'todo' && p.tipo !== filtroTipo) return;
 
-      // 3. Filtro de Plataforma
+      // Filtro de Plataforma
       const origen = (p.plataforma_origen || "Otros").toLowerCase().trim();
       if (filtroPlataforma) {
         const pFiltro = filtroPlataforma.toLowerCase();
         let coincide = false;
-        if (pFiltro === 'cine') { if (origen === 'cine' || p.generos?.includes('Estrenos')) coincide = true; }
-        else if (pFiltro === 'amazon') { if (origen.includes('amazon') || origen.includes('prime')) coincide = true; }
-        else if (pFiltro === 'hbo') { if (origen.includes('hbo') || origen.includes('max')) coincide = true; }
-        else { if (origen.includes(pFiltro)) coincide = true; }
+        if (pFiltro === 'cine') { 
+            if (origen === 'cine' || (Array.isArray(p.generos) && p.generos.includes('Estrenos'))) coincide = true; 
+        }
+        else if (origen.includes(pFiltro)) coincide = true;
+        
         if (!coincide) return;
       }
 
-      // Agrupación
-      let listaGeneros = p.generos && p.generos.length > 0 ? p.generos : ["General"]; 
+      // Agrupación por Géneros
+      const listaGeneros = Array.isArray(p.generos) && p.generos.length > 0 ? p.generos : ["General"]; 
       listaGeneros.forEach(genero => {
         if (!agrupado[genero]) agrupado[genero] = [];
         agrupado[genero].push(p);
       });
     });
+
     setItemsFiltrados(agrupado);
-  };
+};
 
   const handleBusqueda = (e) => {
     const texto = e.target.value;
