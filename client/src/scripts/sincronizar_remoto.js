@@ -6,7 +6,7 @@ const config = {
     host: '65.109.146.153',
     port: '22',
     username: 'root',
-    password: 'Fm5Lcj%Va%kJwr' // Pon tu contraseña real aquí
+    password: 'Fm5Lcj%Va%kJwr' 
 };
 
 const RUTA_REMOTA_PELICULAS = '/home/peliculas'; 
@@ -38,7 +38,6 @@ const main = async () => {
         const archivos = await sftp.list(RUTA_REMOTA_PELICULAS);
         
         let encontrados = 0;
-        let errores = 0;
         let noEncontrados = [];
 
         for (const f of archivos) {
@@ -49,7 +48,7 @@ const main = async () => {
             const nombreBaseArchivo = f.name.replace(/\.[^/.]+$/, ""); 
             const archivoLimpio = normalizar(nombreBaseArchivo);
             
-            // Lógica de coincidencia Inteligente
+            // Lógica de coincidencia Inteligente y Estricta
             const match = pelisDB.find(p => {
                 const tituloBD = normalizar(p.titulo);
                 
@@ -59,9 +58,23 @@ const main = async () => {
                 // REGLA 2: Para títulos cortos (ej: "X"), solo aceptamos coincidencia exacta
                 if (tituloBD.length < 3) return archivoLimpio === tituloBD;
 
-                // REGLA 3: Si el archivo empieza con el título seguido de un espacio
-                // (Evita que "X" coincida con "Oxford")
-                if (archivoLimpio.startsWith(tituloBD + ' ')) return true;
+                // REGLA 3: Manejo estricto de secuelas
+                // Si el archivo tiene un número al final (ej: "2") pero la BD no, NO es match.
+                const numeroArchivo = archivoLimpio.match(/\d+$/);
+                const numeroBD = tituloBD.match(/\d+$/);
+                
+                if (numeroArchivo && !numeroBD) {
+                    return false; 
+                }
+
+                // REGLA 4: El archivo empieza con el título (ej: "Avatar El camino del agua")
+                if (archivoLimpio.startsWith(tituloBD + ' ')) {
+                    // Verificamos que lo que sigue no sea un número de secuela que no está en BD
+                    const resto = archivoLimpio.replace(tituloBD, '').trim();
+                    if (/^\d/.test(resto) && !numeroBD) return false; 
+                    
+                    return true;
+                }
 
                 return false;
             });
@@ -71,7 +84,7 @@ const main = async () => {
                 await updateDoc(doc(db, "peliculas", match.id), {
                     url_video: f.name,
                     disponible_servidor: true,
-                    formato: f.name.split('.').pop() // Guardamos si es mp4 o mkv
+                    formato: f.name.split('.').pop()
                 });
                 encontrados++;
             } else {
@@ -83,14 +96,13 @@ const main = async () => {
         
         console.log("\n" + "=".repeat(50));
         console.log(`📊 RESUMEN DE SINCRONIZACIÓN`);
-        console.log(`- Archivos en servidor: ${archivos.length}`);
+        console.log(`- Archivos procesados:  ${archivos.length}`);
         console.log(`- Vinculados con éxito: ${encontrados}`);
         console.log(`- Sin coincidencia:     ${noEncontrados.length}`);
         console.log("=".repeat(50));
         
         if (noEncontrados.length > 0) {
             console.log("\n⚠️ LOS SIGUIENTES ARCHIVOS NO ESTÁN EN TU WEB:");
-            console.log("(Añade estas películas a Firebase para que se vinculen)");
             noEncontrados.forEach(n => console.log(`   ❌ ${n}`));
         }
 

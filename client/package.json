@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
     "@vidstack/react": "^0.6.15",
     "axios": "^1.6.0",
     "firebase": "^10.0.0",
