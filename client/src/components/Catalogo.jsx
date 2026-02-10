@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
@@ -6,11 +6,9 @@ import axios from 'axios';
 import Fila from './Fila';
 import './Catalogo.css';
 
-const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
+// --- NO IMPORTAMOS VIDSTACK AQUÍ PARA EVITAR ERRORES DE VITE ---
 
-// --- CONFIGURACIÓN DE TU SERVIDOR (NGINX) ---
-// Cambia esto por la IP o Dominio de tu servidor de 70TB
-// Ejemplo: 'http://192.168.1.50' o 'https://media.tudominio.com'
+const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
 const PLATAFORMAS = [
@@ -27,30 +25,22 @@ const PLATAFORMAS = [
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
-
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null); 
-  
-  // Estado para filtro de tipo
-  const [tipoSeleccionado, setTipoSeleccionado] = useState('todo'); // 'todo', 'movie', 'serie'
-
+  const [tipoSeleccionado, setTipoSeleccionado] = useState('todo'); 
   const [busqueda, setBusqueda] = useState('');
   const [item, setItem] = useState(null); 
   const [trailerKey, setTrailerKey] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
-  
-  const playerRef = useRef(null);
   const [numTemporadas, setNumTemporadas] = useState([]); 
   const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
   const [episodios, setEpisodios] = useState([]); 
   const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
 
-  // --- LOGICA DE SESIÓN ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -92,32 +82,26 @@ const Catalogo = () => {
     catch (error) { setErrorLogin("Credenciales incorrectas."); }
   };
 
-  // --- CARGA DE DATOS ---
   useEffect(() => {
     if (!usuario) return;
     const obtenerDatos = async () => {
-  const pelisRef = collection(db, "peliculas");
-  const seriesRef = collection(db, "series");
-  try {
-    const [pelisSnap, seriesSnap] = await Promise.all([getDocs(pelisRef), getDocs(seriesRef)]);
-    const mapaItems = new Map();
-    [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
-      const data = doc.data();
-      mapaItems.set(data.id_tmdb, { id: doc.id, ...data });
-    });
-    const dataUnica = Array.from(mapaItems.values());
-    setTodosLosItems(dataUnica);
-    
-    // Llamamos a organizar
-    organizarPorGeneros(dataUnica, null, '', 'todo'); 
-    
-    // OPCIONAL: Si quieres forzar que deje de cargar aunque esté vacío:
-    // setLoadingAuth(false); // Esto ya ocurre en el onAuthStateChanged, así que está bien.
-  } catch (e) { 
-    console.error(e);
-    setItemsFiltrados({}); // Evita el cuelgue si falla la conexión
-  }
-};
+      const pelisRef = collection(db, "peliculas");
+      const seriesRef = collection(db, "series");
+      try {
+        const [pelisSnap, seriesSnap] = await Promise.all([getDocs(pelisRef), getDocs(seriesRef)]);
+        const mapaItems = new Map();
+        [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
+          const data = doc.data();
+          mapaItems.set(data.id_tmdb, { id: doc.id, ...data });
+        });
+        const dataUnica = Array.from(mapaItems.values());
+        setTodosLosItems(dataUnica);
+        organizarPorGeneros(dataUnica, null, '', 'todo'); 
+      } catch (e) { 
+        console.error(e);
+        setItemsFiltrados({});
+      }
+    };
     obtenerDatos();
   }, [usuario]);
 
@@ -127,26 +111,16 @@ const Catalogo = () => {
     return () => { document.body.classList.remove('modal-abierto'); };
   }, [item]);
 
-const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
+  const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo) => {
     const agrupado = {};
-    
     if (!items) return;
-
     items.forEach(p => {
-      // --- FILTRO ESTRICTO ---
-      // Solo permitimos lo que el script de sincronización marcó como disponible
       if (p.disponible_servidor !== true) return; 
-
-      // Filtro de Búsqueda
       if (textoBusqueda) {
         const titulo = (p.titulo || "").toLowerCase();
         if (!titulo.includes(textoBusqueda.toLowerCase())) return;
       }
-
-      // Filtro de Tipo
       if (filtroTipo && filtroTipo !== 'todo' && p.tipo !== filtroTipo) return;
-
-      // Filtro de Plataforma
       const origen = (p.plataforma_origen || "Otros").toLowerCase().trim();
       if (filtroPlataforma) {
         const pFiltro = filtroPlataforma.toLowerCase();
@@ -155,20 +129,16 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
             if (origen === 'cine' || (Array.isArray(p.generos) && p.generos.includes('Estrenos'))) coincide = true; 
         }
         else if (origen.includes(pFiltro)) coincide = true;
-        
         if (!coincide) return;
       }
-
-      // Agrupación por Géneros
       const listaGeneros = Array.isArray(p.generos) && p.generos.length > 0 ? p.generos : ["General"]; 
       listaGeneros.forEach(genero => {
         if (!agrupado[genero]) agrupado[genero] = [];
         agrupado[genero].push(p);
       });
     });
-
     setItemsFiltrados(agrupado);
-};
+  };
 
   const handleBusqueda = (e) => {
     const texto = e.target.value;
@@ -235,29 +205,18 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
   const cerrarModal = () => { setItem(null); setTrailerKey(null); setVerPeliculaCompleta(false); setEpisodios([]); };
   const reproducirCapitulo = (temp, cap) => { setCapituloActual({ temp, cap }); setVerPeliculaCompleta(true); };
 
-  // --- LÓGICA DE URL INTELIGENTE (Script Indexador + NGINX) ---
   const obtenerUrlVideo = () => {
     if (!item) return '';
-
-    // 1. Caso SERIES
     if (item.tipo === 'serie' || item.tipo === 'tv') {
         const key = `S${capituloActual.temp}E${capituloActual.cap}`;
-        
         if (item.episodios_locales && item.episodios_locales[key]) {
             return `${URL_SERVIDOR}/series/${encodeURI(item.episodios_locales[key])}`;
         }
-        
-        // Fallback: Si no está indexado, intenta adivinar (útil si la carpeta está limpia)
         return `${URL_SERVIDOR}/series/${item.id_tmdb}/S${capituloActual.temp}E${capituloActual.cap}.mp4`;
     }
-
-    // 2. Caso PELÍCULAS
     if (item.url_video) {
-        // Si el script guardó la ruta (ej: "Peliculas/Avatar.2009.mp4")
         return `${URL_SERVIDOR}/peliculas/${encodeURI(item.url_video)}`;
     }
-    
-    // Fallback películas
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
   };
 
@@ -265,7 +224,6 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
     return <div style={{height:'100vh', background:'#0f0f12', display:'flex', justifyContent:'center', alignItems:'center', color:'white'}}>Cargando...</div>;
   }
 
-  // --- VISTA LOGIN ---
   if (!usuario) {
     return (
       <div className="login-premium-bg">
@@ -298,11 +256,8 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
     );
   }
 
-  // --- VISTA CATÁLOGO ---
   return (
     <div className="catalogo-container">
-      
-      {/* HEADER */}
       <header className="header-container">
         <div className="header-logo-wrapper">
             <img src="/logo.svg" alt="StreamGo" className="header-logo" onClick={() => window.location.reload()} />
@@ -323,9 +278,7 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
         </div>
       </header>
 
-      {/* TOOLBAR */}
       <div className="toolbar-container">
-        {/* LISTA DE PLATAFORMAS */}
         <div className="plataformas-list">
           {PLATAFORMAS.map((plat) => (
             <div key={plat.id} className={`plat-btn ${plataformaActiva === plat.id ? 'active' : ''}`} onClick={() => togglePlataforma(plat.id)} title={plat.id}>
@@ -333,15 +286,12 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
             </div>
           ))}
         </div>
-
-        {/* BUSCADOR */}
         <div className="search-inline">
            <span className="search-icon">🔍</span>
            <input type="text" className="search-input" placeholder="Buscar..." value={busqueda} onChange={handleBusqueda} />
         </div>
       </div>
 
-      {/* FILTRO TIPO (PELICULAS / SERIES) */}
       <div className="filtros-tipo-container">
         <button className={`btn-filtro ${tipoSeleccionado === 'todo' ? 'activo' : ''}`} onClick={() => handleTipoChange('todo')}>Todo</button>
         <button className={`btn-filtro ${tipoSeleccionado === 'movie' ? 'activo' : ''}`} onClick={() => handleTipoChange('movie')}>Películas</button>
@@ -364,26 +314,32 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
         )}
       </div>
 
+      {/* ======================================================== */}
+      {/* REPRODUCTOR USANDO WEB COMPONENTS (SIN IMPORTS EN EL JS) */}
+      {/* ======================================================== */}
       {verPeliculaCompleta && item && (
-        <div className="reproductor-overlay" ref={playerRef}>
-          <button className="btn-salir-cine" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
-          
-          {/* REPRODUCTOR NATIVO CONECTADO A TU SERVIDOR */}
-          <video 
-            controls 
-            autoPlay 
-            className="video-player-nativo"
-            style={{ width: '100%', height: '100%', outline: 'none', backgroundColor: 'black' }}
-            onError={(e) => console.log("Error cargando video. URL intentada:", e.target.src)}
+        <div className="reproductor-overlay" style={{backgroundColor: 'black', position: 'fixed', inset: 0, zIndex: 1000}}>
+          <button 
+            className="btn-salir-cine" 
+            onClick={() => setVerPeliculaCompleta(false)}
+            style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 9999 }}
           >
-            <source src={obtenerUrlVideo()} type="video/mp4" />
-            <source src={obtenerUrlVideo()} type="video/webm" />
-            <source src={obtenerUrlVideo()} type="video/ogg" />
-            <p style={{color:'white', padding: 20}}>
-               El formato de video no es compatible con el navegador o el archivo no se encuentra en el servidor.
-            </p>
-          </video>
-
+            ← Volver
+          </button>
+          
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <media-player 
+              title={item.titulo} 
+              src={obtenerUrlVideo()} 
+              autoplay
+              aspect-ratio="16/9"
+              style={{ width: '100%', height: '100%' }}
+            >
+              <media-provider></media-provider>
+              {/* Esta etiqueta carga automáticamente los controles y el selector de audio */}
+              <media-video-layout></media-video-layout>
+            </media-player>
+          </div>
         </div>
       )}
 
@@ -404,7 +360,6 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
                 <div style={{backgroundImage: `url(${item.imagen_fondo})`, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center top'}} onClick={() => setVerPeliculaCompleta(true)} />
               )}
             </div>
-            
             <div className="info-container">
               <div className="netflix-logo">{item.plataforma_origen?.toUpperCase()}</div>
               <h2 className="titulo-principal">{item.titulo}</h2>
@@ -424,4 +379,5 @@ const organizarPorGeneros = (items, filtroPlataforma, textoBusqueda, filtroTipo)
     </div>
   );
 };
+
 export default Catalogo;
