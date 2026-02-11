@@ -24,8 +24,8 @@ const PLATAFORMAS = [
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@neveus.lat');
+  const [password, setPassword] = useState('Fm5Lcj%Va%kJwr');
   const [errorLogin, setErrorLogin] = useState('');
   
   const [todosLosItems, setTodosLosItems] = useState([]);
@@ -399,8 +399,11 @@ const Catalogo = () => {
           <div className="search-results-grid">
             {itemsFiltrados['Resultados'] && itemsFiltrados['Resultados'].length > 0 ? (
               itemsFiltrados['Resultados'].map(p => (
-                <div key={p.id} className="movie-card" onClick={() => setItem(p)} style={{ width: '110px', marginBottom: '10px' }}>
-                  <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} className="movie-img" loading="lazy" />
+                <div key={p.id} className="search-card-wrapper" onClick={() => setItem(p)}>
+                  <div className="movie-card" style={{ width: '100%' }}>
+                    <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} className="movie-img" loading="lazy" />
+                  </div>
+                  <span className="search-card-title">{p.titulo}</span>
                 </div>
               ))
             ) : (

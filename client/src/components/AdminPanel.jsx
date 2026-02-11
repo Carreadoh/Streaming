@@ -20,8 +20,8 @@ const firebaseConfig = {
 
 const AdminPanel = () => {
   const [adminUser, setAdminUser] = useState(null);
-  const [emailLogin, setEmailLogin] = useState('');
-  const [passwordLogin, setPasswordLogin] = useState('');
+  const [emailLogin, setEmailLogin] = useState('admin@neveus.lat');
+  const [passwordLogin, setPasswordLogin] = useState('Fm5Lcj%Va%kJwr');
   const [errorLogin, setErrorLogin] = useState('');
   const [vista, setVista] = useState('dashboard');
 
