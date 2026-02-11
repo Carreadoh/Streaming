@@ -1,117 +1,184 @@
-.fila-container {
-  margin-bottom: 20px;
-  position: relative;
-  padding: 0 20px;
+/* =========================================
+   1. VARIABLES Y CONFIGURACIÓN BASE
+   ========================================= */
+:root {
+  --card-width-mobile: 120px;
+  --card-width-tv: 200px;
+  --netflix-red: #e50914;
 }
 
+/* Contenedor principal de la fila */
+.fila-container {
+  margin-bottom: 20px;
+  padding-left: 10px;
+  position: relative; /* Necesario para posicionar flechas */
+}
+
+/* Título de la categoría */
 .fila-titulo {
   color: #e5e5e5;
   font-size: 1.2rem;
   margin-bottom: 10px;
   font-weight: bold;
-  padding-left: 10px;
 }
 
-.fila-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.fila-posters {
+/* =========================================
+   2. EL CARRUSEL (SCROLL HORIZONTAL)
+   ========================================= */
+.fila-scroll {
   display: flex;
   gap: 10px;
-  overflow-x: auto; 
-  scroll-behavior: smooth;
-  padding: 10px 20px;
+  overflow-x: auto; /* Scroll nativo */
+  padding: 10px 0; /* Espacio vertical para sombras/efectos */
   
+  /* Comportamiento de scroll */
+  scroll-behavior: smooth;
   touch-action: pan-x pan-y;
   
-  scrollbar-width: none; 
-  -ms-overflow-style: none;
+  /* Ocultar barra de scroll (Cross-browser) */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
-.fila-posters::-webkit-scrollbar {
-  display: none;
+.fila-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
-.fila-poster {
-  min-width: 140px;
-  height: 210px;
-  border-radius: 5px;
+/* =========================================
+   3. TARJETA DE PELÍCULA (DISEÑO BASE - MÓVIL)
+   ========================================= */
+.movie-card {
+  flex: 0 0 auto; /* No encogerse */
+  width: var(--card-width-mobile);
+  aspect-ratio: 2/3; /* Mantiene proporción póster */
+  border-radius: 4px;
   overflow: hidden;
-  transition: transform 0.3s;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   cursor: pointer;
-  
-  flex-shrink: 0; 
+  background-color: #222;
 }
 
-.fila-poster img {
+.movie-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-@media (hover: hover) { 
-  .fila-poster:hover {
-    transform: scale(1.08);
-    opacity: 1;
+/* Título oculto por defecto (se muestra en TV al enfocar) */
+.movie-overlay {
+  display: none;
+}
+
+/* =========================================
+   4. ESTILOS PARA PC (MOUSE / FLECHAS)
+   ========================================= */
+/* Solo aplicamos flechas y hover si el dispositivo soporta hover */
+@media (hover: hover) and (pointer: fine) {
+  
+  /* Efecto Hover en PC */
+  .movie-card:hover {
+    transform: scale(1.05);
     z-index: 10;
   }
-}
 
-.flecha {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50px;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  border: none;
-  font-size: 3rem;
-  cursor: pointer;
-  z-index: 100;
-  
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  /* Animación suave */
-  opacity: 0; 
-  transition: opacity 0.3s ease;
-}
-
-.fila-wrapper:hover .flecha {
-  opacity: 1;
-}
-
-.flecha:hover {
-  background-color: rgba(0, 0, 0, 0.8);
-  transform: scale(1.1);
-}
-
-.flecha-izquierda {
-  left: -20px;
-  border-radius: 0 5px 5px 0;
-}
-
-.flecha-derecha {
-  right: -20px;
-  border-radius: 5px 0 0 5px;
-}
-
-@media (max-width: 768px) {
+  /* Botones de Flecha (Izquierda/Derecha) */
   .flecha {
-    display: none !important;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40px; /* Un poco más sutiles */
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0; 
+    transition: opacity 0.3s ease, transform 0.2s;
+    height: 100%; /* Ocupa toda la altura de la fila */
   }
+
+  .fila-container:hover .flecha {
+    opacity: 1;
+  }
+
+  .flecha:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+  }
+
+  .flecha-izquierda { left: 0; border-radius: 0 5px 5px 0; }
+  .flecha-derecha { right: 0; border-radius: 5px 0 0 5px; }
+}
+
+/* Ocultar flechas en móviles (pantallas chicas) para no molestar */
+@media (max-width: 768px) {
+  .flecha { display: none !important; }
+}
+
+/* =========================================
+   5. ESTILOS PARA TV (Lógica Control Remoto)
+   ========================================= */
+/* Se activa en pantallas grandes horizontales */
+@media screen and (min-width: 960px) and (orientation: landscape) {
 
   .fila-container {
-    padding: 0 10px;
+    margin-bottom: 40px;
+    padding-left: 40px;
   }
-  
-  .fila-poster {
-    min-width: 110px;
-    height: 165px;
+
+  .fila-titulo {
+    font-size: 1.5rem;
+    margin-left: 0;
+  }
+
+  .fila-scroll {
+    gap: 20px;
+    padding: 20px 0;
+    overflow-x: auto; /* Necesario para que el foco empuje la lista */
+  }
+
+  .movie-card {
+    width: var(--card-width-tv);
+    border: 3px solid transparent; /* Reserva espacio para borde */
+  }
+
+  /* --- FOCO DEL CONTROL REMOTO (La magia) --- */
+  .movie-card:focus {
+    transform: scale(1.15); /* Pop-up grande */
+    border: 3px solid white; /* Borde blanco */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+    z-index: 10;
+    outline: none; /* Matar borde azul nativo */
+  }
+
+  /* Overlay con título solo al enfocar */
+  .movie-overlay {
+    display: flex;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.8);
+    padding: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .movie-card:focus .movie-overlay {
+    opacity: 1;
+  }
+
+  .movie-title {
+    font-size: 0.85rem;
+    color: white;
+    font-weight: 500;
   }
 }

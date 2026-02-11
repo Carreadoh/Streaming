@@ -13,39 +13,39 @@ const VideoPlayer = ({ src }) => {
     const video = videoRef.current;
     if (!video || !src) return;
 
-    const hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: true,
-    });
+    // Configuración HLS
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
     hlsRef.current = hls;
-
     hls.loadSource(src);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       if (!playerRef.current) {
         playerRef.current = new Plyr(video, {
-          // Reordenamos los controles para poner 'settings' (idioma) al lado de 'volume'
+          // Controles simplificados para TV (Grandes y claros)
           controls: [
-            'play-large', 
+            'play-large', // Botón gigante en el medio
             'play', 
             'progress', 
             'current-time', 
-            'mute', 
-            'volume', 
-            'settings', // El engranaje ahora está pegado al volumen
-            'fullscreen'
+            'duration',
+            'settings', // Idioma
           ],
-          settings: ['audio', 'speed'], 
-          iconUrl: 'https://cdn.plyr.io/3.7.8/plyr.svg',
-          i18n: { audio: 'Idioma', speed: 'Velocidad' },
+          settings: ['audio', 'speed'],
+          // Traducción al español
+          i18n: { audio: 'Audio / Idioma', speed: 'Velocidad', quality: 'Calidad' },
+          // Desactivar tooltips que molestan en TV
+          tooltips: { controls: false, seek: true },
+          // Esconder controles después de 4 segundos
+          hideControls: true,
+          resetOnEnd: true,
         });
       }
 
-      // Inyectar las pistas de audio para habilitar el menú de Inglés/Español
+      // --- INYECCIÓN DE IDIOMAS (Inglés/Español) ---
       if (hls.audioTracks.length > 1) {
         const audioOptions = hls.audioTracks.map((track, index) => ({
-          label: track.name || (track.lang === 'es' ? 'Español' : 'Inglés'),
+          label: track.name || (track.lang === 'es' ? 'Español Latino' : 'Inglés Original'),
           value: index,
         }));
 
@@ -53,15 +53,13 @@ const VideoPlayer = ({ src }) => {
           audio: {
             options: audioOptions,
             selected: hls.audioTrack,
-            onChange: (index) => {
-              hls.audioTrack = index;
-            },
+            onChange: (index) => { hls.audioTrack = index; },
           },
         });
       }
       
       setIsReady(true);
-      video.play().catch(() => console.log("Autoplay bloqueado"));
+      video.play().catch(() => {});
     });
 
     return () => {
@@ -71,61 +69,59 @@ const VideoPlayer = ({ src }) => {
   }, [src]);
 
   return (
-    <div className="video-container">
-      <div className={`video-wrapper ${isReady ? 'ready' : ''}`}>
-        <video
-          ref={videoRef}
-          className="plyr-react plyr"
-          playsInline
-          crossOrigin="anonymous"
-        />
-      </div>
-
+    <div className="tv-player-container">
+      <video ref={videoRef} className="plyr-react plyr" playsInline crossOrigin="anonymous" />
+      
+      {/* CSS INYECTADO SOLO PARA ESTE COMPONENTE EN MODO TV */}
       <style>{`
-        /* Ocupar todo el ancho y alto del dispositivo */
-        .video-container {
+        .tv-player-container {
           width: 100vw;
           height: 100vh;
           background: #000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0;
-          padding: 0;
           overflow: hidden;
+          position: fixed;
+          top: 0;
+          left: 0;
+          z-index: 9999;
         }
 
-        .video-wrapper {
-          width: 100%;
-          height: 100%;
-          opacity: 0;
-          transition: opacity 0.5s ease;
-        }
-
-        .video-wrapper.ready {
-          opacity: 1;
-        }
-
+        /* 1. CONTROLES GIGANTES PARA VER DE LEJOS */
         :root {
-          --plyr-color-main: #e50914 !important; /* Rojo */
+          --plyr-color-main: #e50914; /* Rojo Netflix */
+          --plyr-range-thumb-height: 20px;
+          --plyr-control-icon-size: 40px; /* Iconos más grandes */
+          --plyr-font-size-base: 22px; /* Texto más grande */
         }
 
-        .plyr {
-          height: 100%;
-          width: 100%;
-        }
-
-        /* Posicionamiento del botón de configuración al lado del volumen */
         .plyr__controls {
-          background: linear-gradient(transparent, rgba(0,0,0,0.8)) !important;
-          padding-bottom: 35px !important; /* Más espacio para evitar que se tape */
-          gap: 5px; /* Espaciado entre botones */
+          padding: 40px 60px !important; /* Márgenes de seguridad para TV (Overscan) */
+          background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.95)) !important;
+          padding-bottom: 50px !important;
         }
 
-        /* Forzar que el menú de ajustes se abra hacia arriba y no se corte */
+        /* 2. BARRA DE PROGRESO MÁS GRUESA */
+        .plyr__progress input[type=range], .plyr__volume input[type=range] {
+           height: 10px !important; 
+        }
+
+        /* 3. MENÚ DE IDIOMA (Settings) */
         .plyr__menu__container {
-          bottom: 75px !important; 
-          z-index: 1001;
+          bottom: 110px !important; /* Subirlo para que no tape la barra */
+          width: 350px !important; /* Menú ancho */
+          background: rgba(20, 20, 20, 0.95) !important;
+          border-radius: 8px;
+        }
+
+        .plyr__menu__container button {
+            font-size: 20px !important; /* Texto de opciones gigante */
+            padding: 15px !important;
+        }
+
+        /* Foco visible en los botones del player (Borde blanco) */
+        .plyr__control:focus-visible, 
+        .plyr__control:hover {
+            background: rgba(255, 0, 0, 0.7) !important;
+            transform: scale(1.1);
         }
       `}</style>
     </div>
