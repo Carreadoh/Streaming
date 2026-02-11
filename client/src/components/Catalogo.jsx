@@ -62,7 +62,7 @@ const Catalogo = () => {
 
     // 1. Listener Nativo de Android (Capacitor) - PRIORIDAD APK
     const setupAppListener = async () => {
-      backListener = await App.addListener('backButton', ({ canGoBack }) => {
+      backListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
         const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
         
         if (verPeliculaCompleta) {
@@ -72,7 +72,7 @@ const Catalogo = () => {
         } else if (menuAbierto) {
           setMenuAbierto(false);
         } else {
-          App.exitApp(); // Solo sale si no hay nada abierto
+          CapacitorApp.exitApp(); // Solo sale si no hay nada abierto
         }
       });
     };
