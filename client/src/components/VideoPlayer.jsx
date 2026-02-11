@@ -23,18 +23,26 @@ const VideoPlayer = ({ src }) => {
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      // 1. Inicializamos Plyr
       if (!playerRef.current) {
         playerRef.current = new Plyr(video, {
-          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen'],
+          // Reordenamos los controles para poner 'settings' (idioma) al lado de 'volume'
+          controls: [
+            'play-large', 
+            'play', 
+            'progress', 
+            'current-time', 
+            'mute', 
+            'volume', 
+            'settings', // El engranaje ahora está pegado al volumen
+            'fullscreen'
+          ],
           settings: ['audio', 'speed'], 
           iconUrl: 'https://cdn.plyr.io/3.7.8/plyr.svg',
           i18n: { audio: 'Idioma', speed: 'Velocidad' },
         });
       }
 
-      // 2. FORZAR MENÚ DE AUDIO (Inglés/Español)
-      // Esperamos un momento a que Plyr esté listo para recibir las opciones
+      // Inyectar las pistas de audio para habilitar el menú de Inglés/Español
       if (hls.audioTracks.length > 1) {
         const audioOptions = hls.audioTracks.map((track, index) => ({
           label: track.name || (track.lang === 'es' ? 'Español' : 'Inglés'),
@@ -74,7 +82,7 @@ const VideoPlayer = ({ src }) => {
       </div>
 
       <style>{`
-        /* 1. Ocupar todo el dispositivo sin márgenes */
+        /* Ocupar todo el ancho y alto del dispositivo */
         .video-container {
           width: 100vw;
           height: 100vh;
@@ -88,7 +96,7 @@ const VideoPlayer = ({ src }) => {
         }
 
         .video-wrapper {
-          width: 100%; /* Eliminado el max-width de 1280px */
+          width: 100%;
           height: 100%;
           opacity: 0;
           transition: opacity 0.5s ease;
@@ -98,9 +106,8 @@ const VideoPlayer = ({ src }) => {
           opacity: 1;
         }
 
-        /* 2. Estilos Visuales y Fix de Menú */
         :root {
-          --plyr-color-main: #e50914 !important; /* Rojo Netflix */
+          --plyr-color-main: #e50914 !important; /* Rojo */
         }
 
         .plyr {
@@ -108,20 +115,17 @@ const VideoPlayer = ({ src }) => {
           width: 100%;
         }
 
-        /* Asegurar que los iconos sean visibles y el menú aparezca */
-        .plyr__control svg {
-          filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
-        }
-
-        .plyr__menu__container {
-          bottom: 80px !important; /* Subimos el menú para que no lo tape nada */
-          z-index: 1001;
-        }
-
-        /* Forzar que el botón de settings sea visible */
+        /* Posicionamiento del botón de configuración al lado del volumen */
         .plyr__controls {
           background: linear-gradient(transparent, rgba(0,0,0,0.8)) !important;
-          padding-bottom: 30px !important;
+          padding-bottom: 35px !important; /* Más espacio para evitar que se tape */
+          gap: 5px; /* Espaciado entre botones */
+        }
+
+        /* Forzar que el menú de ajustes se abra hacia arriba y no se corte */
+        .plyr__menu__container {
+          bottom: 75px !important; 
+          z-index: 1001;
         }
       `}</style>
     </div>
