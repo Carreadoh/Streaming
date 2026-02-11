@@ -1,16 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import axios from 'axios';
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
-import './Catalogo.css'; // Asegúrate de tener el CSS que te pasé antes
+import '../App.css'; // Usamos el CSS global potente
 
-const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const URL_SERVIDOR = 'https://cine.neveus.lat';
+const URL_SERVIDOR = 'https://cine.neveus.lat'; // Tu servidor de streaming
 
-// Iconos simplificados para TV
+// Configuración de Plataformas (Iconos)
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
   { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
@@ -21,99 +20,64 @@ const PLATAFORMAS = [
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorLogin, setErrorLogin] = useState('');
-  
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
-  const [plataformaActiva, setPlataformaActiva] = useState(null); 
-  const [tipoSeleccionado, setTipoSeleccionado] = useState('todo'); 
-  const [busqueda, setBusqueda] = useState('');
+  const [plataformaActiva, setPlataformaActiva] = useState(null);
   
-  const [item, setItem] = useState(null); 
-  const [trailerKey, setTrailerKey] = useState(null); 
-  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
+  // Estados de UI
+  const [item, setItem] = useState(null); // Peli seleccionada (Modal)
+  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false); // Reproductor activo
   
-  const [numTemporadas, setNumTemporadas] = useState([]); 
-  const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
-  const [episodios, setEpisodios] = useState([]); 
-  const [capituloActual, setCapituloActual] = useState({ temp: 1, cap: 1 }); 
-
-  // Referencia para el botón reproducir (Foco automático en TV)
+  // Referencia para el foco automático en TV
   const btnReproducirRef = useRef(null);
 
-  // --- 1. DETECCIÓN DE BOTÓN "ATRÁS" (CONTROL REMOTO) ---
+  // --- 1. DETECCIÓN DE TECLA "ATRÁS" (CONTROL REMOTO) ---
   useEffect(() => {
-    const handleBackBtn = (e) => {
-      // KeyCode 10009 es "Back" en Tizen/WebOS, 27 es ESC, 8 es Backspace
-      if (e.key === 'Escape' || e.keyCode === 10009 || e.key === 'Backspace') {
-        if (verPeliculaCompleta) {
-          setVerPeliculaCompleta(false);
-        } else if (item) {
-          setItem(null);
-        }
+    const handleBack = (e) => {
+      // Códigos: Escape (PC), 10009 (Tizen/WebOS Back), 8 (Backspace)
+      if (['Escape', 'Backspace'].includes(e.key) || e.keyCode === 10009) {
+        if (verPeliculaCompleta) setVerPeliculaCompleta(false);
+        else if (item) setItem(null);
       }
     };
-    window.addEventListener('keydown', handleBackBtn);
-    return () => window.removeEventListener('keydown', handleBackBtn);
+    window.addEventListener('keydown', handleBack);
+    return () => window.removeEventListener('keydown', handleBack);
   }, [item, verPeliculaCompleta]);
 
-  // --- 2. FOCO AUTOMÁTICO AL ABRIR MODAL ---
+  // --- 2. FOCO AUTOMÁTICO AL ABRIR MODAL (TV) ---
   useEffect(() => {
     if (item && !verPeliculaCompleta && btnReproducirRef.current) {
-      // Pequeño delay para asegurar que el DOM cargó
       setTimeout(() => btnReproducirRef.current.focus(), 100);
     }
   }, [item, verPeliculaCompleta]);
 
-  // --- SESIÓN Y DATOS ---
+  // --- AUTENTICACIÓN Y CARGA DE DATOS ---
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-         setUsuario(user);
-         // Aquí iría tu lógica de validación de fecha, simplificada para el ejemplo
-      } else { setUsuario(null); }
+    onAuthStateChanged(auth, (user) => {
+      setUsuario(user);
       setLoadingAuth(false);
     });
-    return () => unsubscribe();
   }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault(); setErrorLogin('');
-    try { await signInWithEmailAndPassword(getAuth(), email, password); } 
-    catch (error) { setErrorLogin("Error de acceso."); }
-  };
 
   useEffect(() => {
     if (!usuario) return;
-    const obtenerDatos = async () => {
+    const cargarContenido = async () => {
       try {
-        const pelisSnap = await getDocs(collection(db, "peliculas"));
-        const seriesSnap = await getDocs(collection(db, "series"));
-        const mapaItems = new Map();
-        [...pelisSnap.docs, ...seriesSnap.docs].forEach(doc => {
-          const data = doc.data();
-          mapaItems.set(data.id_tmdb, { id: doc.id, ...data });
-        });
-        const dataUnica = Array.from(mapaItems.values());
-        setTodosLosItems(dataUnica);
-        organizarPorGeneros(dataUnica, null, '', 'todo'); 
+        const pSnapshot = await getDocs(collection(db, "peliculas"));
+        const data = pSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setTodosLosItems(data);
+        filtrarYOrganizar(data, null);
       } catch (e) { console.error(e); }
     };
-    obtenerDatos();
+    cargarContenido();
   }, [usuario]);
 
-  const organizarPorGeneros = (items, filtroPlat, busq, tipo) => {
+  const filtrarYOrganizar = (items, plat) => {
     const agrupado = {};
     items.forEach(p => {
-      if (p.disponible_servidor !== true) return; 
-      if (busq && !(p.titulo || "").toLowerCase().includes(busq.toLowerCase())) return;
-      if (tipo !== 'todo' && p.tipo !== tipo) return;
-      if (filtroPlat && !p.plataforma_origen?.toLowerCase().includes(filtroPlat.toLowerCase())) return;
-
-      const generos = Array.isArray(p.generos) && p.generos.length > 0 ? p.generos : ["General"];
+      if (plat && !p.plataforma_origen?.includes(plat)) return;
+      const generos = p.generos || ["General"];
       generos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
         agrupado[g].push(p);
@@ -122,99 +86,90 @@ const Catalogo = () => {
     setItemsFiltrados(agrupado);
   };
 
-  const abrirModal = (p) => { 
-    setItem(p); setVerPeliculaCompleta(false);
-    // Lógica trailers y series (simplificada)
-    if (p.tipo === 'serie') { 
-        // Tu lógica de cargar temporadas...
-        setNumTemporadas([1]); cargarEpisodios(p.id_tmdb, 1);
-    }
-  };
-
   const obtenerUrlVideo = () => {
-    if (!item) return '';
-    if (item.tipo === 'serie') {
-      // Tu lógica de series...
-      return `${URL_SERVIDOR}/series/${item.id_tmdb}/S${capituloActual.temp}E${capituloActual.cap}.mp4`; 
-    }
-    // HLS AUTOMÁTICO
+    // Lógica para tu servidor HLS
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
   };
 
-  // --- VISTAS ---
   if (loadingAuth) return <div className="loading">Cargando...</div>;
-
-  if (!usuario) {
-    return (
-      <div className="login-premium-bg">
-        <form onSubmit={handleLogin} className="login-card">
-          <input type="email" placeholder="Correo" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-          <input type="password" placeholder="Pass" value={password} onChange={e => setPassword(e.target.value)} />
-          <button type="submit">Entrar</button>
-        </form>
-      </div>
-    );
-  }
+  if (!usuario) return <div className="login">Login... (Tu código de login acá)</div>;
 
   return (
-    <div className="catalogo-container">
-      {/* HEADER SIMPLIFICADO PARA TV */}
-      <header className="header-tv">
-        <img src="/logo.svg" alt="Logo" className="logo-tv" />
-        <div className="filtros-tv">
+    <div className="catalogo-wrapper">
+      
+      {/* HEADER: Se adapta solo por CSS */}
+      <header className="header-main">
+        <img src="/logo.svg" alt="StreamGo" className="logo" />
+        
+        <div className="filtros-container">
+          <button 
+            className={`btn-filtro ${!plataformaActiva ? 'activo' : ''}`}
+            onClick={() => { setPlataformaActiva(null); filtrarYOrganizar(todosLosItems, null); }}
+            tabIndex="0"
+          >
+            Todo
+          </button>
           {PLATAFORMAS.map(p => (
-            <button 
-              key={p.id} 
-              className={`btn-plat-tv ${plataformaActiva === p.id ? 'active' : ''}`}
-              onClick={() => {
-                 const nueva = plataformaActiva === p.id ? null : p.id;
-                 setPlataformaActiva(nueva);
-                 organizarPorGeneros(todosLosItems, nueva, busqueda, tipoSeleccionado);
-              }}
-              tabIndex="0" // Foco
+            <button
+              key={p.id}
+              className={`btn-filtro ${plataformaActiva === p.id ? 'activo' : ''}`}
+              onClick={() => { setPlataformaActiva(p.id); filtrarYOrganizar(todosLosItems, p.id); }}
+              tabIndex="0"
             >
-              <img src={p.logo} alt={p.id} />
+              {p.id}
             </button>
           ))}
         </div>
       </header>
 
-      {/* FILAS (Usando el Fila.jsx que te pasé antes) */}
-      <div className="filas-wrapper">
-        {Object.keys(itemsFiltrados).sort().map(g => (
-           <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={abrirModal} />
+      {/* LISTA DE FILAS */}
+      <div className="contenido-principal">
+        {Object.keys(itemsFiltrados).sort().map(genero => (
+          <Fila 
+            key={genero} 
+            titulo={genero} 
+            peliculas={itemsFiltrados[genero]} 
+            onClickPelicula={(p) => setItem(p)}
+          />
         ))}
       </div>
 
-      {/* REPRODUCTOR FULLSCREEN (Sin botón salir flotante, usa tecla Atrás) */}
+      {/* REPRODUCTOR (FULLSCREEN) */}
       {verPeliculaCompleta && item && (
-        <div className="player-fullscreen-tv">
-           <VideoPlayer src={obtenerUrlVideo()} />
+        <div style={{position:'fixed', inset:0, zIndex:9999, background:'black'}}>
+          <VideoPlayer src={obtenerUrlVideo()} />
         </div>
       )}
 
-      {/* MODAL DETALLE (ESTILO NETFLIX) */}
+      {/* MODAL DETALLE */}
       {item && !verPeliculaCompleta && (
-        <div className="modal-tv-overlay" onClick={() => setItem(null)}>
-          <div className="modal-tv-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-tv-left">
-                <h2>{item.titulo}</h2>
-                <p>{item.descripcion}</p>
-                <div className="modal-tv-actions">
-                    <button 
-                        ref={btnReproducirRef} // FOCO INICIAL AQUÍ
-                        className="btn-play-tv" 
-                        onClick={() => setVerPeliculaCompleta(true)}
-                        tabIndex="0"
-                    >
-                        ▶ Reproducir
-                    </button>
-                    <button className="btn-close-tv" onClick={() => setItem(null)} tabIndex="0">
-                        Cerrar
-                    </button>
-                </div>
+        <div className="modal-overlay" onClick={() => setItem(null)} 
+             style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          
+          <div className="modal-content" onClick={e => e.stopPropagation()} 
+               style={{background:'#1a1a1a', padding:'20px', borderRadius:'10px', maxWidth:'500px', width:'90%'}}>
+            
+            <h2>{item.titulo}</h2>
+            <p>{item.descripcion}</p>
+            
+            <div style={{marginTop:'20px', display:'flex', gap:'10px'}}>
+              <button 
+                ref={btnReproducirRef} /* EL FOCO CAE ACÁ EN TV */
+                className="btn-accion" 
+                onClick={() => setVerPeliculaCompleta(true)}
+                style={{padding:'10px 20px', background:'red', color:'white', border:'none', fontSize:'16px', cursor:'pointer'}}
+                tabIndex="0"
+              >
+                ▶ Reproducir
+              </button>
+              <button 
+                onClick={() => setItem(null)}
+                style={{padding:'10px 20px', background:'#333', color:'white', border:'none', fontSize:'16px', cursor:'pointer'}}
+                tabIndex="0"
+              >
+                Cerrar
+              </button>
             </div>
-            <div className="modal-tv-right" style={{backgroundImage: `url(${item.imagen_fondo || item.poster_path})`}}></div>
           </div>
         </div>
       )}

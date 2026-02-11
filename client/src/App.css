@@ -1,163 +1,229 @@
-/* =========================================
-   1. VARIABLES GLOBALES Y RESET (TU CÓDIGO)
-   ========================================= */
+/* =================================================================
+   1. ESTILOS GLOBALES (FONDO Y TEXTO)
+   ================================================================= */
 :root {
-  --netflix-red: #e50914;
-  --bg-color: #141414;
-  --text-color: #ffffff;
-  --focus-border: #ffffff; /* Borde blanco al seleccionar en TV */
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  --color-fondo: #141414;
+  --color-texto: #ffffff;
+  --color-rojo: #e50914;
+  --tamano-card-movil: 120px;
+  --tamano-card-tv: 220px;
 }
 
 body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-  width: 100vw;
+  overflow-x: hidden; /* Evita que la pantalla baile a los costados */
+  -webkit-tap-highlight-color: transparent; /* Quita el flash azul en celular */
 }
 
-/* IMPORTANTE: Quita el borde azul feo de Android al seleccionar */
+/* Quita el borde azul feo de Android TV al seleccionar */
 *:focus {
   outline: none;
 }
 
-/* =========================================
-   2. CONTENEDOR PRINCIPAL (LAYOUT)
-   ========================================= */
+/* =================================================================
+   2. DISEÑO MÓVIL (POR DEFECTO - CELULAR / TABLET VERTICAL)
+   "Prolijo como antes": Filas compactas, scroll suave, sin zoom exagerado.
+   ================================================================= */
+
 .app-container {
-  min-height: 100vh;
+  padding-bottom: 60px; /* Espacio para no chocar con el borde inferior */
+}
+
+/* Cabecera Móvil */
+.header-main {
+  padding: 15px;
   display: flex;
   flex-direction: column;
-  padding: 20px 10px; /* Padding chico para celular */
-}
-
-/* Header */
-header {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-header h1 {
-  color: var(--netflix-red);
-  font-size: 2.5rem;
-  margin-bottom: 5px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-/* =========================================
-   3. GRILLA DE PELÍCULAS (RESPONSIVE)
-   ========================================= */
-.movies-grid {
-  display: grid;
-  /* Esto crea columnas automáticas. 
-     En celular: 2 columnas. 
-     En TV: 5 o 6 columnas. */
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 15px;
-  width: 100%;
+  background: #000;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
-/* Tarjeta de Película */
+.logo {
+  height: 35px;
+  align-self: center;
+}
+
+/* Filtros en Móvil (Botones chicos y scrolleables) */
+.filtros-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+  scrollbar-width: none; /* Ocultar barra scroll */
+}
+.filtros-container::-webkit-scrollbar { display: none; }
+
+.btn-filtro {
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 20px;
+  padding: 6px 15px;
+  color: white;
+  font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-filtro.activo {
+  background: white;
+  color: black;
+  font-weight: bold;
+}
+
+/* --- FILAS DE PELÍCULAS (MÓVIL) --- */
+.fila-container {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.fila-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: 15px;
+  margin-bottom: 8px;
+  color: #e5e5e5;
+}
+
+.fila-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-left: 15px; /* Margen inicial estético */
+  padding-right: 15px;
+  scrollbar-width: none;
+}
+
 .movie-card {
-  position: relative;
-  border-radius: 6px;
+  flex: 0 0 auto;
+  width: var(--tamano-card-movil);
+  aspect-ratio: 2/3;
+  border-radius: 4px;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-  background-color: #222;
-  aspect-ratio: 2/3; /* Mantiene formato póster siempre */
+  background: #222;
+  position: relative;
 }
 
-.movie-card img {
+.movie-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
-/* Título sobre el póster (opcional, estilo Netflix) */
-.movie-info {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-  padding: 10px;
-  opacity: 1; /* Visible en celular */
-}
+/* En el celular NO mostramos título sobre la imagen ni efectos de zoom */
+.movie-overlay { display: none; }
 
-.movie-info h3 {
-  font-size: 0.9rem;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-/* =========================================
-   4. ESTILOS ESPECÍFICOS PARA TV (CONTROL REMOTO)
-   ========================================= */
-/* Se activa solo si la pantalla es ancha (TV o Tablet Landscape) */
+/* =================================================================
+   3. DISEÑO TV (SOLO PANTALLAS GRANDES Y HORIZONTALES)
+   "Estilo Netflix": Tarjetas grandes, Foco, Pop-up, Scroll Magnético.
+   ================================================================= */
 @media screen and (min-width: 960px) and (orientation: landscape) {
 
-  .app-container {
-    padding: 40px 60px; /* Más margen en TV para evitar bordes cortados (Overscan) */
+  /* Cabecera TV (Transparente y elegante) */
+  .header-main {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+    padding: 30px 50px;
+    position: relative;
+    box-shadow: none;
   }
 
-  .movies-grid {
-    gap: 30px; /* Más espacio entre pósters */
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Pósters más grandes */
+  .logo { height: 50px; }
+
+  /* Filtros TV (Botones más grandes y seleccionables) */
+  .filtros-container {
+    overflow: visible;
+    gap: 15px;
   }
 
-  /* --- LÓGICA DE FOCO (CONTROL REMOTO) --- */
-  
-  /* Cuando navegas con las flechas y te paras sobre una película */
-  .movie-card:focus {
-    transform: scale(1.15); /* Efecto Pop-up grande */
-    border: 3px solid var(--focus-border); /* Borde blanco brillante */
-    box-shadow: 0 10px 20px rgba(0,0,0,0.8); /* Sombra 3D */
-    z-index: 10; /* Poner encima de las otras */
+  .btn-filtro {
+    padding: 10px 25px;
+    font-size: 16px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
   }
 
-  /* Cuando te paras sobre un botón */
-  button:focus {
-    background-color: white;
+  /* EFECTO FOCO EN FILTROS */
+  .btn-filtro:focus {
+    background: white;
     color: black;
     transform: scale(1.1);
-    border: 3px solid var(--netflix-red);
+    box-shadow: 0 0 15px rgba(255,255,255,0.5);
   }
 
-  /* Ocultar info hasta que se haga foco */
-  .movie-info {
+  /* --- FILAS DE PELÍCULAS (TV) --- */
+  .fila-container {
+    margin-bottom: 40px;
+    padding-left: 50px; /* Margen izquierdo de TV */
+  }
+
+  .fila-titulo {
+    font-size: 1.5rem;
+    margin-left: 0;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .fila-scroll {
+    gap: 20px;
+    overflow-x: auto;
+    padding: 40px 0; /* Espacio vertical para que el zoom no se corte */
+    
+    /* MAGIA: Scroll suave y magnético */
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory; 
+  }
+
+  .movie-card {
+    width: var(--tamano-card-tv);
+    border-radius: 8px;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: 3px solid transparent; /* Reserva espacio para borde de foco */
+    scroll-snap-align: start; /* Para que se frene en la tarjeta */
+    scroll-margin-left: 50px;
+  }
+
+  /* --- EFECTO NETFLIX AL ENFOCAR CON EL CONTROL --- */
+  .movie-card:focus {
+    transform: scale(1.15); /* Agrandar */
+    border-color: white;    /* Borde blanco */
+    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+    background: #333;
+  }
+
+  /* Overlay con título (Solo visible al enfocar) */
+  .movie-overlay {
+    display: flex;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,0,0,0.8);
     opacity: 0;
     transition: opacity 0.3s;
+    justify-content: center;
+    text-align: center;
   }
 
-  .movie-card:focus .movie-info {
+  .movie-card:focus .movie-overlay {
     opacity: 1;
   }
-}
 
-/* =========================================
-   5. REPRODUCTOR (FULLSCREEN)
-   ========================================= */
-.video-fullscreen-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: black;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  .movie-title {
+    font-size: 14px;
+    font-weight: bold;
+  }
 }

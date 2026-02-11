@@ -1,43 +1,33 @@
-import React, { useRef } from 'react';
-import './Fila.css'; // O App.css si usas uno global
+import React from 'react';
+// import './Fila.css'; // YA NO HACE FALTA SI PUSISTE TODO EN APP.CSS
 
 const Fila = ({ titulo, peliculas, onClickPelicula }) => {
-  const rowRef = useRef(null);
-
-  // Manejo de teclas para TV (Enter abre la peli)
-  const handleKeyDown = (e, peli) => {
-    if (e.key === 'Enter') {
-      onClickPelicula(peli);
-    }
-  };
+  if (!peliculas || peliculas.length === 0) return null;
 
   return (
     <div className="fila-container">
       <h2 className="fila-titulo">{titulo}</h2>
-
-      {/* Contenedor con Scroll Horizontal */}
-      <div className="fila-scroll" ref={rowRef}>
+      
+      <div className="fila-scroll">
         {peliculas.map((peli) => (
           <div
-            key={peli.id_tmdb || peli.id} // Usamos ID único
+            key={peli.id_tmdb || peli.id}
             className="movie-card"
-            /* --- LÓGICA TV --- */
-            tabIndex="0" // ¡VITAL! Permite que el control remoto "vea" la tarjeta
-            onKeyDown={(e) => handleKeyDown(e, peli)} // Permite dar OK con el control
-            /* --- LÓGICA CELULAR/MOUSE --- */
+            /* LÓGICA TV: Permitir foco y detectar Enter */
+            tabIndex="0"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onClickPelicula(peli);
+            }}
+            /* LÓGICA CELULAR: Click normal */
             onClick={() => onClickPelicula(peli)}
           >
             <img
               className="movie-img"
-              src={
-                peli.poster_path 
-                  ? `https://image.tmdb.org/t/p/w300${peli.poster_path}` 
-                  : 'https://via.placeholder.com/300x450?text=Sin+Imagen'
-              }
+              src={peli.poster_path ? `https://image.tmdb.org/t/p/w300${peli.poster_path}` : '/no-img.png'}
               alt={peli.titulo}
               loading="lazy"
             />
-            {/* Título opcional, visible solo al hacer foco en TV */}
+            {/* Título solo visible en TV al enfocar */}
             <div className="movie-overlay">
               <span className="movie-title">{peli.titulo}</span>
             </div>
