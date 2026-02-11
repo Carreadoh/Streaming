@@ -144,18 +144,18 @@ const Catalogo = () => {
         
         {/* FILTROS PLATAFORMAS */}
         <div className="filtros-container">
-          <div 
-            className={`btn-plat text-btn ${!plataformaActiva ? 'activo' : ''}`} 
+          <div
+            className={`btn-plat text-btn ${!plataformaActiva ? 'activo' : ''}`}
             onClick={() => { setPlataformaActiva(null); filtrar(todosLosItems, null, busqueda); }}
             tabIndex="0"
           >
             TODO
           </div>
           {PLATAFORMAS.map(p => (
-            <div 
+            <div
               key={p.id}
               className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
-              onClick={() => { 
+              onClick={() => {
                 const nueva = plataformaActiva === p.id ? null : p.id;
                 setPlataformaActiva(nueva);
                 filtrar(todosLosItems, nueva, busqueda);
@@ -165,6 +165,22 @@ const Catalogo = () => {
               <img src={p.logo} alt={p.id} />
             </div>
           ))}
+        </div>
+
+        {/* BARRA DE BÚSQUEDA */}
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Buscar películas o series..."
+            value={busqueda}
+            onChange={(e) => {
+              const nuevaBusqueda = e.target.value;
+              setBusqueda(nuevaBusqueda);
+              filtrar(todosLosItems, plataformaActiva, nuevaBusqueda);
+            }}
+            className="search-input"
+            tabIndex="0"
+          />
         </div>
       </header>
 

@@ -4,10 +4,16 @@ import React from 'react';
 const Fila = ({ titulo, peliculas, onClickPelicula }) => {
   if (!peliculas || peliculas.length === 0) return null;
 
+  const getPosterUrl = (path) => {
+    if (!path) return '/no-img.png';
+    if (path.startsWith('http')) return path;
+    return `https://image.tmdb.org/t/p/w300${path}`;
+  };
+
   return (
     <div className="fila-container">
       <h2 className="fila-titulo">{titulo}</h2>
-      
+
       <div className="fila-scroll">
         {peliculas.map((peli) => (
           <div
@@ -23,7 +29,7 @@ const Fila = ({ titulo, peliculas, onClickPelicula }) => {
           >
             <img
               className="movie-img"
-              src={peli.poster_path ? `https://image.tmdb.org/t/p/w300${peli.poster_path}` : '/no-img.png'}
+              src={peli.imagen_poster || '/no-img.png'}
               alt={peli.titulo}
               loading="lazy"
             />

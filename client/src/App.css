@@ -33,6 +33,29 @@ body {
 }
 .logo-app { height: 30px; align-self: flex-start; cursor: pointer; }
 
+/* BARRA DE BÚSQUEDA */
+.search-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+.search-input {
+  width: 100%;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 25px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 16px;
+  outline: none;
+}
+.search-input::placeholder {
+  color: rgba(255,255,255,0.7);
+}
+.search-input:focus {
+  background: rgba(255,255,255,0.2);
+}
+
 /* Filtros deslizable con el dedo */
 .filtros-container {
   display: flex; gap: 10px; align-items: center;
@@ -131,6 +154,29 @@ body {
     box-shadow: none;
   }
   .logo-app { height: 50px; }
+
+  /* BARRA DE BÚSQUEDA TV */
+  .search-container {
+    flex: 1;
+    max-width: 600px;
+    margin: 0 50px;
+  }
+  .search-input {
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 25px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 18px;
+    outline: none;
+  }
+  .search-input::placeholder {
+    color: rgba(255,255,255,0.7);
+  }
+  .search-input:focus {
+    background: rgba(255,255,255,0.2);
+  }
 
   /* Filtros TV (Botones grandes y focuseables) */
   .btn-plat { margin: 0 5px; }

@@ -13,21 +13,45 @@ const VideoPlayer = ({ src }) => {
     const video = videoRef.current;
     if (!video || !src) return;
 
+    console.log('Loading video from:', src);
+
     // Configuración HLS
     const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
     hlsRef.current = hls;
+
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      console.error('HLS Error:', data);
+      if (data.fatal) {
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.error('Network error, trying to recover...');
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.error('Media error, trying to recover...');
+            hls.recoverMediaError();
+            break;
+          default:
+            console.error('Fatal error, destroying HLS');
+            hls.destroy();
+            break;
+        }
+      }
+    });
+
     hls.loadSource(src);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      console.log('Manifest parsed successfully');
       if (!playerRef.current) {
         playerRef.current = new Plyr(video, {
           // Controles simplificados para TV (Grandes y claros)
           controls: [
             'play-large', // Botón gigante en el medio
-            'play', 
-            'progress', 
-            'current-time', 
+            'play',
+            'progress',
+            'current-time',
             'duration',
             'settings', // Idioma
           ],
@@ -57,9 +81,9 @@ const VideoPlayer = ({ src }) => {
           },
         });
       }
-      
+
       setIsReady(true);
-      video.play().catch(() => {});
+      video.play().catch((e) => console.error('Auto-play failed:', e));
     });
 
     return () => {

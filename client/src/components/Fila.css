@@ -79,8 +79,13 @@
   
   /* Efecto Hover en PC */
   .movie-card:hover {
-    transform: scale(1.05);
+    transform: scale(1.1);
     z-index: 10;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  }
+
+  .movie-card:hover .movie-img {
+    transform: scale(1.2);
   }
 
   /* Botones de Flecha (Izquierda/Derecha) */
