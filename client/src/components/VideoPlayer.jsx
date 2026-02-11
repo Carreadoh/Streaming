@@ -1,116 +1,113 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import Plyr from 'plyr';
-// Asegúrate de que el CSS de Plyr esté en tu index.html
+// Asegúrate de tener el CSS: <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 
 const VideoPlayer = ({ src }) => {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const playerRef = useRef(null);
+  
+  // Estado para saber si estamos listos para mostrar el reproductor
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
-    // --- 1. CONFIGURACIÓN VISUAL (ROJO NETFLIX + OPCIONES) ---
+    // Destruir instancias previas para evitar duplicados
+    if (hlsRef.current) hlsRef.current.destroy();
+    if (playerRef.current) playerRef.current.destroy();
+
+    // Opciones visuales (Rojo y controles completos)
     const plyrOptions = {
-      // Definimos los controles que queremos ver
       controls: [
         'play-large', 'play', 'progress', 'current-time', 
-        'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'
+        'mute', 'volume', 'settings', 'pip', 'fullscreen'
       ],
-      // AQUÍ ESTÁ LA CLAVE: Orden del menú
-      settings: ['captions', 'audio', 'quality', 'speed'], 
+      settings: ['audio', 'quality', 'speed'], // AUDIO PRIMERO
       i18n: {
         restart: 'Reiniciar', play: 'Reproducir', pause: 'Pausar', 
-        settings: 'Ajustes', audio: 'Audio', captions: 'Subtítulos',
-        quality: 'Calidad', speed: 'Velocidad', normal: 'Normal',
-        disabled: 'Desactivado', enabled: 'Activado'
+        settings: 'Ajustes', audio: 'Idioma', quality: 'Calidad', 
+        speed: 'Velocidad', normal: 'Normal',
       },
-      // Forzar subtítulos activados si existen
-      captions: { active: true, update: true, language: 'auto' },
       autoplay: true,
     };
 
-    // --- 2. LA MAGIA: PUENTE ENTRE HLS Y PLYR ---
-    // Esta función conecta los cables sueltos para que el audio sea instantáneo
-    const conectarPistas = (hls, player) => {
-      
-      // A) Inyectar AUDIOS al menú de Plyr
-      if (hls.audioTracks.length > 0) {
-        // Creamos un objeto falso que imita al navegador
-        const audioTracksFake = hls.audioTracks.map((t, i) => ({
-          id: i,
+    // --- FUNCIÓN DE INYECCIÓN DE AUDIO (EL "HACK") ---
+    const injectAudioTracks = (hlsInstance) => {
+      // Si no hay tracks o solo hay 1, no hacemos nada (Plyr ocultará el menú y está bien)
+      if (!hlsInstance.audioTracks || hlsInstance.audioTracks.length < 2) return;
+
+      console.log("🔊 Inyectando audios para Plyr:", hlsInstance.audioTracks);
+
+      const fakeTracks = hlsInstance.audioTracks.map((track, index) => {
+        return {
+          id: index,
           kind: 'main',
-          label: t.name || `Idioma ${i+1}`,
-          language: t.lang || `lang-${i}`,
-          enabled: i === hls.audioTrack
-        }));
+          label: track.name || (index === 0 ? 'Español' : 'Inglés'), // Fallback de nombres
+          language: track.lang || (index === 0 ? 'es' : 'en'),
+          enabled: index === hlsInstance.audioTrack
+        };
+      });
 
-        // Engañamos a Plyr para que crea que es nativo
-        Object.defineProperty(video, 'audioTracks', {
-          get: () => audioTracksFake,
-          configurable: true
+      // 1. Definimos la propiedad audioTracks en el elemento de video
+      Object.defineProperty(video, 'audioTracks', {
+        get: () => fakeTracks,
+        configurable: true
+      });
+
+      // 2. Conectamos el interruptor (Cuando Plyr cambia 'enabled', nosotros cambiamos HLS)
+      fakeTracks.forEach((fakeTrack, index) => {
+        Object.defineProperty(fakeTrack, 'enabled', {
+          get: () => index === hlsInstance.audioTrack,
+          set: (val) => {
+            if (val) {
+              console.log(`⚡ Cambio de audio a: ${fakeTrack.label}`);
+              hlsInstance.audioTrack = index;
+            }
+          }
         });
-
-        // Escuchamos cuando Plyr intenta cambiar el audio (UI -> HLS)
-        // Plyr modifica la propiedad .enabled de la pista
-        audioTracksFake.forEach((track, index) => {
-           Object.defineProperty(track, 'enabled', {
-             get: () => index === hls.audioTrack,
-             set: (val) => {
-               if (val) {
-                 console.log(`⚡ Audio cambiado instantáneamente a: ${track.label}`);
-                 hls.audioTrack = index; // Cambio inmediato
-               }
-             }
-           });
-        });
-      }
-
-      // B) Inyectar SUBTÍTULOS (Si no hay archivo, forzamos uno "Auto")
-      // Nota: Si no tienes un .vtt, esto mostrará el botón pero no saldrá texto real.
-      // Chrome en PiP usa "Live Caption" (IA local), eso no se puede forzar en web,
-      // pero podemos dejar el botón listo para cuando subas subtítulos.
+      });
     };
 
-    // --- 3. INICIALIZACIÓN ---
+    // --- INICIALIZACIÓN HLS ---
     if (Hls.isSupported() && src.includes('.m3u8')) {
-      const hls = new Hls({ 
-        enableWorker: true, 
-        lowLatencyMode: true,
-        backBufferLength: 90 
-      });
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
       hlsRef.current = hls;
 
       hls.loadSource(src);
       hls.attachMedia(video);
 
+      // ESPERAMOS A QUE SE PARSEEN LOS DATOS
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        // Iniciamos Plyr
+        
+        // 1. Aplicamos el hack de audio
+        injectAudioTracks(hls);
+
+        // 2. Iniciamos Plyr AHORA (no antes)
         if (!playerRef.current) {
           playerRef.current = new Plyr(video, plyrOptions);
+          
+          // Fix para el bug de controles ocultos: Recalcular tamaño
+          setTimeout(() => {
+             setIsReady(true); // Muestra el contenedor limpio
+          }, 100);
         }
-        
-        // Ejecutamos la conexión de pistas inmediatamente
-        conectarPistas(hls, playerRef.current);
 
-        // Forzamos play
+        // Play
         video.play().catch(() => {});
       });
 
-      // Recuperación de errores
       hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-           else hls.destroy();
-        }
+         if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
       });
 
     } else {
-      // Soporte nativo (Safari)
+      // Soporte Nativo (Safari)
       video.src = src;
       playerRef.current = new Plyr(video, plyrOptions);
+      setIsReady(true);
     }
 
     return () => {
@@ -120,27 +117,44 @@ const VideoPlayer = ({ src }) => {
   }, [src]);
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
-      <video
-        ref={videoRef}
-        className="plyr-react plyr"
-        playsInline
-        controls
-        crossOrigin="anonymous"
-        style={{ width: '100%', height: '100%' }}
-      />
+    // CONTENEDOR FIX: height: 100vh o fixed para asegurar que no se corte
+    <div style={{ width: '100%', height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      
+      {/* Wrapper de video */}
+      <div style={{ width: '100%', maxWidth: '100%', opacity: isReady ? 1 : 0, transition: 'opacity 0.5s' }}>
+          <video
+            ref={videoRef}
+            className="plyr-react plyr"
+            playsInline
+            controls
+            crossOrigin="anonymous"
+            style={{ width: '100%', height: 'auto' }}
+          />
+      </div>
+
       <style>{`
+        /* ROJO NETFLIX */
         :root {
-          --plyr-color-main: #e50914 !important; /* ROJO */
+          --plyr-color-main: #e50914 !important;
           --plyr-video-control-color: #ffffff;
         }
-        /* Forzamos que el menú de audio y subtítulos se muestre */
-        .plyr__menu__container [data-plyr="audio"],
-        .plyr__menu__container [data-plyr="captions"] {
+        
+        /* FORZAR VISIBILIDAD DEL MENÚ DE AUDIO */
+        /* Esto obliga al botón a aparecer aunque Plyr quiera ocultarlo */
+        .plyr__menu__container [data-plyr="audio"] {
             display: block !important;
         }
-        .plyr--full-ui input[type=range] {
-            color: #e50914 !important;
+
+        /* ARREGLO DE CONTROLES OCULTOS */
+        /* Aseguramos que la barra de control tenga espacio y esté encima */
+        .plyr__controls {
+            padding-bottom: 20px !important;
+            z-index: 1000 !important;
+        }
+        
+        /* Ajuste para que el menú no se corte por abajo */
+        .plyr__menu__container {
+            bottom: 50px !important; 
         }
       `}</style>
     </div>
