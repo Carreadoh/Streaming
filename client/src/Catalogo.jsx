@@ -1,14 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { App } from '@capacitor/app'; // <--- 1. IMPORTACIÓN NECESARIA
-import axios from 'axios';
+import { collection, getDocs } from 'firebase/firestore';
+import { App } from '@capacitor/app';
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
 import '../App.css'; 
 
-const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
 const PLATAFORMAS = [
@@ -22,12 +19,9 @@ const PLATAFORMAS = [
 ];
 
 const Catalogo = () => {
-  const [usuario, setUsuario] = useState(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorLogin, setErrorLogin] = useState('');
-  
+  // --- ESTADO Y REFERENCIAS ---
+  // Eliminamos usuario, loadingAuth, email, password, errorLogin
+
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformasSeleccionadas, setPlataformasSeleccionadas] = useState([]);
@@ -49,8 +43,7 @@ const Catalogo = () => {
     return `https://image.tmdb.org/t/p/original${path}`;
   };
 
-  // --- 2. GESTIÓN DEL BOTÓN ATRÁS (NATIVO ANDROID + TV) ---
-  // Usamos ref para tener siempre el estado actualizado dentro del listener sin reiniciarlo
+  // --- GESTIÓN DEL BOTÓN ATRÁS (NATIVO ANDROID + TV) ---
   const stateRef = useRef({ item, verPeliculaCompleta, menuAbierto });
   
   useEffect(() => {
@@ -102,24 +95,9 @@ const Catalogo = () => {
     }
   }, [item, verPeliculaCompleta]);
 
-  // --- AUTH ---
+  // --- CARGA DE DATOS (YA NO DEPENDE DE USUARIO) ---
   useEffect(() => {
-    const auth = getAuth();
-    onAuthStateChanged(auth, (user) => {
-      setUsuario(user);
-      setLoadingAuth(false);
-    });
-  }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault(); setErrorLogin('');
-    try { await signInWithEmailAndPassword(getAuth(), email, password); } 
-    catch (error) { setErrorLogin("Error de credenciales"); }
-  };
-
-  // --- CARGA DE DATOS ---
-  useEffect(() => {
-    if (!usuario) return;
+    // Eliminamos la verificación if (!usuario) return;
     const cargar = async () => {
       try {
         const pSnap = await getDocs(collection(db, "peliculas"));
@@ -134,7 +112,7 @@ const Catalogo = () => {
       } catch (e) { console.error(e); }
     };
     cargar();
-  }, [usuario]);
+  }, []); // Dependencias vacías ahora
 
   const filtrar = (items, plat, busq, tipo) => {
     const agrupado = {};
@@ -167,11 +145,7 @@ const Catalogo = () => {
     }
   }, [favoritos, miLista]);
 
-  const handleCerrarSesion = () => {
-    const auth = getAuth();
-    auth.signOut();
-    setMenuAbierto(false);
-  };
+  // handleCerrarSesion eliminado
 
   const handleCambiarTipo = (tipo) => {
     setTipoContenido(tipo);
@@ -201,23 +175,7 @@ const Catalogo = () => {
     localStorage.setItem('miLista', JSON.stringify(nuevos));
   };
 
-  if (loadingAuth) {
-    return <div className="loading-container"><div className="loading-spinner"></div></div>;
-  }
-
-  if (!usuario) {
-    return (
-      <div className="login-container">
-        <form onSubmit={handleLogin} className="login-form">
-          <img src="/logo.svg" alt="Logo" className="login-logo"/>
-          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/>
-          <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>
-          {errorLogin && <p className="error">{errorLogin}</p>}
-          <button type="submit">Ingresar</button>
-        </form>
-      </div>
-    );
-  }
+  // Eliminamos los bloques de loadingAuth y !usuario (login)
 
   return (
     <div className="catalogo-wrapper">
@@ -253,9 +211,7 @@ const Catalogo = () => {
                 <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>
                   <img src="/assets/icon-milista.svg" alt="" className="menu-icon-img" /> Mi Lista
                 </button>
-                <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>
-                  <img src="/assets/icon-cerrar.svg" alt="" className="menu-icon-img" /> Cerrar Sesión
-                </button>
+                {/* Botón Cerrar Sesión eliminado */}
               </nav>
             </div>
           </>
@@ -290,7 +246,6 @@ const Catalogo = () => {
       {/* REPRODUCTOR */}
       {verPeliculaCompleta && item && (
         <div className="player-overlay">
-          {/* 3. CORRECCIÓN: Usar setVerPeliculaCompleta directamente, no history.back() */}
           <button className="btn-volver-player" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           <VideoPlayer src={obtenerUrlVideo()} />
         </div>
@@ -301,7 +256,6 @@ const Catalogo = () => {
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}>
-              {/* 3. CORRECCIÓN: Usar setItem(null) directamente */}
               <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
             </div>
 
