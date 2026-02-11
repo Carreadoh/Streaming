@@ -120,8 +120,8 @@ const Catalogo = () => {
     console.log('Video URL:', url);
     console.log('Item:', item);
 
-    // Fallback para testing - video de prueba
-    const testUrl = 'https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8';
+    // Fallback para testing - video de prueba con CORS
+    const testUrl = 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8';
     return testUrl; // Usando video de prueba para testing
   };
 
