@@ -7,7 +7,7 @@ import axios from 'axios';
 import './AdminPanel.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const EMAIL_PERMITIDO = "admin@streamgo.lat"; 
+const EMAIL_PERMITIDO = "admin@neveus.lat"; 
 
 const firebaseConfig = {
   apiKey: "AIzaSyA1_Hd2K0xrkDc5ZZht-2WxTVE1hyWu04E",
@@ -192,7 +192,7 @@ const AdminPanel = () => {
         <div className="login-card">
           {/* LOGO PNG AQUÍ */}
           <div style={{marginBottom: '20px'}}>
-             <img src="/logo.svg" alt="Logo" style={{height: '80px', objectFit:'contain'}} />
+             <img src="/logo.png" alt="Logo" style={{height: '80px', objectFit:'contain'}} />
           </div>
           <h2 style={{color:'white', marginBottom:'10px'}}>Admin Portal</h2>
           
@@ -212,7 +212,7 @@ const AdminPanel = () => {
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="logo-area" style={{justifyContent: 'center'}}>
-          <img src="/logo.svg" alt="Logo" style={{width: '100%', maxWidth:'120px'}} />
+          <img src="/logo.png" alt="Logo" style={{width: '100%', maxWidth:'120px'}} />
         </div>
         
         <nav className="nav-links">

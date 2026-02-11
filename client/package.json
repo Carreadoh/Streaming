@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
+    "@capacitor/app": "^8.0.0",
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
-    "axios": "^1.6.0",
+    "axios": "^1.13.5",
     "firebase": "^10.0.0",
+    "fs-extra": "^11.3.3",
     "glob": "^13.0.1",
     "hls.js": "^1.6.15",
     "icons": "^1.0.0",

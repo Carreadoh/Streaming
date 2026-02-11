@@ -2,15 +2,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { App } from '@capacitor/app'; // <--- 1. IMPORTACIÓN NECESARIA
 import axios from 'axios';
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
-import '../App.css'; // Usamos el CSS global
+import '../App.css'; 
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
-// Logos de plataformas
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
   { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
@@ -33,68 +33,65 @@ const Catalogo = () => {
   const [plataformasSeleccionadas, setPlataformasSeleccionadas] = useState([]);
   const [plataformaActiva, setPlataformaActiva] = useState(null);
   const [busqueda, setBusqueda] = useState('');
-  const [tipoContenido, setTipoContenido] = useState('todo'); // 'todo', 'peliculas', 'series'
+  const [tipoContenido, setTipoContenido] = useState('todo'); 
   const [menuAbierto, setMenuAbierto] = useState(false);
   
-  const [item, setItem] = useState(null); // Modal Item
+  const [item, setItem] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
-  const btnReproducirRef = useRef(null); // Para foco en TV
+  const btnReproducirRef = useRef(null); 
 
   const [favoritos, setFavoritos] = useState(() => JSON.parse(localStorage.getItem('favoritos')) || []);
   const [miLista, setMiLista] = useState(() => JSON.parse(localStorage.getItem('miLista')) || []);
 
-  // --- FUNCIÓN CLAVE PARA ARREGLAR FOTOS ---
   const getImagenUrl = (path) => {
-    if (!path) return 'https://via.placeholder.com/500x281?text=No+Image'; // Fallback
-    if (path.startsWith('http')) return path; // Si ya es link completo, úsalo
-    return `https://image.tmdb.org/t/p/original${path}`; // Si es ruta TMDB, agrégale el prefijo
+    if (!path) return 'https://via.placeholder.com/500x281?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `https://image.tmdb.org/t/p/original${path}`;
   };
 
-  // --- GESTIÓN ROBUSTA DEL BOTÓN ATRÁS ---
-  const stateRef = useRef({ item, verPeliculaCompleta });
+  // --- 2. GESTIÓN DEL BOTÓN ATRÁS (NATIVO ANDROID + TV) ---
+  // Usamos ref para tener siempre el estado actualizado dentro del listener sin reiniciarlo
+  const stateRef = useRef({ item, verPeliculaCompleta, menuAbierto });
   
   useEffect(() => {
-    stateRef.current = { item, verPeliculaCompleta };
-  }, [item, verPeliculaCompleta]);
+    stateRef.current = { item, verPeliculaCompleta, menuAbierto };
+  }, [item, verPeliculaCompleta, menuAbierto]);
 
   useEffect(() => {
-    let backListener;
-
-    // 1. Listener Nativo de Android (Capacitor) - PRIORIDAD APK
+    // A. Listener Nativo de Android (Capacitor)
     const setupAppListener = async () => {
-      backListener = await App.addListener('backButton', ({ canGoBack }) => {
-        const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
-        
-        if (verPeliculaCompleta) {
-          setVerPeliculaCompleta(false);
-        } else if (item) {
-          setItem(null);
-        } else if (menuAbierto) {
-          setMenuAbierto(false);
-        } else {
-          App.exitApp(); // Solo sale si no hay nada abierto
-        }
-      });
-    };
-    setupAppListener();
+        const listener = await App.addListener('backButton', ({ canGoBack }) => {
+            const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
 
-    // 2. Listener de Teclado (TV / PC)
-    const handleKeyDown = (e) => {
-      if (['Escape', 'Backspace'].includes(e.key) || e.keyCode === 10009) {
-        const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
-        if (item || verPeliculaCompleta || menuAbierto) {
-          e.preventDefault();
-          if (verPeliculaCompleta) setVerPeliculaCompleta(false);
-          else if (item) setItem(null);
-          else if (menuAbierto) setMenuAbierto(false);
-        }
-      }
+            if (verPeliculaCompleta) {
+                setVerPeliculaCompleta(false); // Cierra video
+            } else if (item) {
+                setItem(null); // Cierra modal detalle
+            } else if (menuAbierto) {
+                setMenuAbierto(false); // Cierra menú lateral
+            } else {
+                App.exitApp(); // Si no hay nada abierto, sale de la app
+            }
+        });
+        return listener;
     };
-    window.addEventListener('keydown', handleKeyDown);
-    
+
+    // B. Listener de Teclado (Para TV - Control Remoto)
+    const handleTVBack = (event) => {
+        if (['Escape', 'Backspace'].includes(event.key) || event.keyCode === 10009) {
+            const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
+            if (verPeliculaCompleta) setVerPeliculaCompleta(false);
+            else if (item) setItem(null);
+            else if (menuAbierto) setMenuAbierto(false);
+        }
+    };
+
+    const backListenerPromise = setupAppListener();
+    window.addEventListener('keydown', handleTVBack);
+
     return () => {
-      if (backListener) backListener.remove();
-      window.removeEventListener('keydown', handleKeyDown);
+        backListenerPromise.then(listener => listener.remove());
+        window.removeEventListener('keydown', handleTVBack);
     };
   }, []);
 
@@ -125,20 +122,15 @@ const Catalogo = () => {
     if (!usuario) return;
     const cargar = async () => {
       try {
-        // Carga Pelis
         const pSnap = await getDocs(collection(db, "peliculas"));
-        // Carga Series (si tienes)
         const sSnap = await getDocs(collection(db, "series"));
         
         const combinados = [];
         pSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'movie'}));
         sSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'serie'}));
 
-        // Eliminar duplicados por ID
-        const unicos = combinados.filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
-
-        setTodosLosItems(unicos);
-        filtrar(unicos, null, '', 'todo');
+        setTodosLosItems(combinados);
+        filtrar(combinados, null, '', 'todo');
       } catch (e) { console.error(e); }
     };
     cargar();
@@ -146,44 +138,19 @@ const Catalogo = () => {
 
   const filtrar = (items, plat, busq, tipo) => {
     const agrupado = {};
-    
-    // Inicializar grupos únicos para secciones personales
     if (tipo === 'favoritos') agrupado['Favoritos'] = [];
     if (tipo === 'milista') agrupado['Mi Lista'] = [];
-    if (tipo === 'buscador') agrupado['Resultados'] = [];
 
     items.forEach(p => {
-      // Filtros de Listas Personales
       if (tipo === 'favoritos' && !favoritos.includes(p.id)) return;
       if (tipo === 'milista' && !miLista.includes(p.id)) return;
-
-      // Filtrar por tipo de contenido
       if (tipo === 'peliculas' && p.tipo !== 'movie') return;
       if (tipo === 'series' && p.tipo !== 'serie') return;
-      
-      // Filtrar por plataforma
       if (plat && !p.plataforma_origen?.toLowerCase().includes(plat.toLowerCase())) return;
-      
-      // Filtrar por búsqueda (si hay texto)
-      if (busq && !normalizarTexto(p.titulo).includes(normalizarTexto(busq))) return;
+      if (busq && !p.titulo?.toLowerCase().includes(busq.toLowerCase())) return;
 
-      // Agrupación única para Favoritos y Mi Lista (sin géneros)
-      if (tipo === 'favoritos') {
-        agrupado['Favoritos'].push(p);
-        return;
-      }
-      if (tipo === 'milista') {
-        agrupado['Mi Lista'].push(p);
-        return;
-      }
-      if (tipo === 'buscador') {
-        agrupado['Resultados'].push(p);
-        return;
-      }
-      if (tipo === 'buscador') {
-        agrupado['Resultados'].push(p);
-        return;
-      }
+      if (tipo === 'favoritos') { agrupado['Favoritos'].push(p); return; }
+      if (tipo === 'milista') { agrupado['Mi Lista'].push(p); return; }
 
       const generos = p.generos || ["General"];
       generos.forEach(g => {
@@ -194,7 +161,6 @@ const Catalogo = () => {
     setItemsFiltrados(agrupado);
   };
 
-  // Refrescar vista si cambian favoritos/lista y estamos en esa sección
   useEffect(() => {
     if (tipoContenido === 'favoritos' || tipoContenido === 'milista') {
       filtrar(todosLosItems, plataformaActiva, busqueda, tipoContenido);
@@ -209,26 +175,14 @@ const Catalogo = () => {
 
   const handleCambiarTipo = (tipo) => {
     setTipoContenido(tipo);
-    if (tipo === 'buscador') {
-      setPlataformaActiva(null);
-      setBusqueda('');
-      filtrar(todosLosItems, null, '', 'buscador');
-    } else {
-      filtrar(todosLosItems, plataformaActiva, busqueda, tipo);
-    }
     setMenuAbierto(false);
+    filtrar(todosLosItems, plataformaActiva, busqueda, tipo);
   };
 
   const obtenerUrlVideo = () => {
     if (!item) return '';
-    // Lógica Servidor HLS
     const url = `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
-    console.log('Video URL:', url);
-    console.log('Item:', item);
-
-    // Fallback para testing - video de prueba con CORS
-    const testUrl = 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8';
-    return testUrl; // Usando video de prueba para testing
+    return url;
   };
 
   const toggleFavorito = (id) => {
@@ -248,18 +202,14 @@ const Catalogo = () => {
   };
 
   if (loadingAuth) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-      </div>
-    );
+    return <div className="loading-container"><div className="loading-spinner"></div></div>;
   }
 
   if (!usuario) {
     return (
       <div className="login-container">
         <form onSubmit={handleLogin} className="login-form">
-          <img src="/logo.png" alt="Logo" className="login-logo"/>
+          <img src="/logo.svg" alt="Logo" className="login-logo"/>
           <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/>
           <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>
           {errorLogin && <p className="error">{errorLogin}</p>}
@@ -272,15 +222,10 @@ const Catalogo = () => {
   return (
     <div className="catalogo-wrapper">
       
-      {/* HEADER */}
       <header className="header-main">
         <button className="menu-btn" onClick={() => setMenuAbierto(!menuAbierto)}>☰</button>
-        <img src="/logo.png" alt="StreamGo" className="logo-app" onClick={() => handleCambiarTipo('todo')} />
-        <button className="search-btn-header" onClick={() => handleCambiarTipo('buscador')}>
-          <img src="/assets/icon-buscador.svg" alt="Buscar" />
-        </button>
+        <img src="/logo.svg" alt="StreamGo" className="logo-app" onClick={() => handleCambiarTipo('todo')} />
         
-        {/* MENÚ LATERAL */}
         {menuAbierto && (
           <>
             <div className="menu-overlay" onClick={() => setMenuAbierto(false)}></div>
@@ -290,46 +235,25 @@ const Catalogo = () => {
                 <button className="btn-cerrar-menu" onClick={() => setMenuAbierto(false)}>✕</button>
               </div>
               <nav className="menu-nav">
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('todo')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>
                   <img src="/assets/icon-inicio.svg" alt="" className="menu-icon-img" /> Inicio
                 </button>
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'buscador' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('buscador')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'buscador' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('buscador')}>
                   <img src="/assets/icon-buscador.svg" alt="" className="menu-icon-img" /> Buscador
                 </button>
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('peliculas')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>
                   <img src="/assets/icon-peliculas.svg" alt="" className="menu-icon-img" /> Películas
                 </button>
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('series')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>
                   <img src="/assets/icon-series.svg" alt="" className="menu-icon-img" /> Series
                 </button>
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('favoritos')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>
                   <img src="/assets/icon-favoritos.svg" alt="" className="menu-icon-img" /> Mis Favoritos
                 </button>
-                <button 
-                  className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`}
-                  onClick={() => handleCambiarTipo('milista')}
-                >
+                <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>
                   <img src="/assets/icon-milista.svg" alt="" className="menu-icon-img" /> Mi Lista
                 </button>
-                <button 
-                  className="menu-item-btn cerrar-sesion"
-                  onClick={handleCerrarSesion}
-                >
+                <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>
                   <img src="/assets/icon-cerrar.svg" alt="" className="menu-icon-img" /> Cerrar Sesión
                 </button>
               </nav>
@@ -338,10 +262,7 @@ const Catalogo = () => {
         )}
       </header>
 
-      {/* CONTENIDO */}
       <div className="filas-contenido">
-        
-        {/* FILTROS PLATAFORMAS - DENTRO DEL BODY */}
         {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
           <div className="filtros-container">
           {PLATAFORMAS.map(p => (
@@ -362,95 +283,42 @@ const Catalogo = () => {
         )}
 
         {Object.keys(itemsFiltrados).sort().map(g => (
-          <Fila 
-            key={g} 
-            titulo={g} 
-            peliculas={itemsFiltrados[g]} 
-            onClickPelicula={(p) => setItem(p)} 
-          />
+          <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={(p) => setItem(p)} />
         ))}
       </div>
 
-      {/* PANTALLA DE BÚSQUEDA */}
-      {tipoContenido === 'buscador' && (
-        <div className="search-screen">
-          <div className="search-header">
-            <button className="btn-back-search" onClick={() => handleCambiarTipo('todo')}>←</button>
-            <div className="search-input-wrapper">
-              <input 
-                type="text" 
-                className="search-input-full"
-                placeholder="Buscar películas, series..." 
-                value={busqueda}
-                autoFocus
-                onChange={(e) => {
-                  setBusqueda(e.target.value);
-                  filtrar(todosLosItems, null, e.target.value, 'buscador'); // Usar e.target.value directamente
-                }}
-              />
-              {busqueda && (
-                <button className="btn-clear-search" onClick={() => {
-                  setBusqueda('');
-                  filtrar(todosLosItems, null, '', 'buscador');
-                }}>✕</button>
-              )}
-            </div>
-          </div>
-          <div className="search-results-grid">
-            {itemsFiltrados['Resultados'] && itemsFiltrados['Resultados'].length > 0 ? (
-              itemsFiltrados['Resultados'].map(p => (
-                <div key={p.id} className="movie-card" onClick={() => setItem(p)} style={{ width: '110px', marginBottom: '10px' }}>
-                  <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} className="movie-img" loading="lazy" />
-                </div>
-              ))
-            ) : (
-              <div className="no-results">{busqueda ? "No se encontraron resultados" : "Escribe para buscar..."}</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* REPRODUCTOR (TV & CELU) */}
+      {/* REPRODUCTOR */}
       {verPeliculaCompleta && item && (
         <div className="player-overlay">
-          <button className="btn-volver-player" onClick={() => window.history.back()}>← Volver</button>
+          {/* 3. CORRECCIÓN: Usar setVerPeliculaCompleta directamente, no history.back() */}
+          <button className="btn-volver-player" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           <VideoPlayer src={obtenerUrlVideo()} />
         </div>
       )}
 
-      {/* MODAL DETALLE (Corrección de banner aquí) */}
+      {/* MODAL DETALLE */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            
-            {/* BANNER CON FUNCIÓN CORRECTIVA */}
-            <div 
-              className="modal-banner" 
-              style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}
-            >
-              <button className="btn-cerrar" onClick={() => window.history.back()}>✕</button>
+            <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}>
+              {/* 3. CORRECCIÓN: Usar setItem(null) directamente */}
+              <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
             </div>
 
             <div className="modal-info">
               <h2>{item.titulo}</h2>
-              
               <div className="modal-meta">
                 {item.fecha_estreno && <span className="meta-tag">{item.fecha_estreno.split('-')[0]}</span>}
                 {item.duracion && <span>{item.duracion} min</span>}
               </div>
-
               <p className="modal-desc">{item.descripcion || item.overview}</p>
 
               <div className="modal-actions">
-                <button className={`action-btn ${favoritos.includes(item.id) ? 'activo' : ''}`}
-                  onClick={() => toggleFavorito(item.id)}
-                >
+                <button className={`action-btn ${favoritos.includes(item.id) ? 'activo' : ''}`} onClick={() => toggleFavorito(item.id)}>
                   <img src="/assets/icon-favoritos.svg" alt="Favorito" />
                   <span>Favorito</span>
                 </button>
-                <button className={`action-btn ${miLista.includes(item.id) ? 'activo' : ''}`}
-                  onClick={() => toggleMiLista(item.id)}
-                >
+                <button className={`action-btn ${miLista.includes(item.id) ? 'activo' : ''}`} onClick={() => toggleMiLista(item.id)}>
                   <img src="/assets/icon-milista.svg" alt="Mi Lista" />
                   <span>Mi Lista</span>
                 </button>
@@ -463,12 +331,7 @@ const Catalogo = () => {
                 </div>
               )}
 
-              <button 
-                ref={btnReproducirRef}
-                className="btn-play-detalle"
-                onClick={() => setVerPeliculaCompleta(true)}
-                tabIndex="0"
-              >
+              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)} tabIndex="0">
                 ▶ REPRODUCIR
               </button>
             </div>
