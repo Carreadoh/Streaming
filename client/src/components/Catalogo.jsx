@@ -5,42 +5,47 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebas
 import axios from 'axios';
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
-import '../App.css'; 
+import '../App.css'; // Usamos el CSS global
 
-const URL_SERVIDOR = 'https://cine.neveus.lat'; 
+const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
+const URL_SERVIDOR = 'https://cine.neveus.lat';
 
+// Logos de plataformas
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
   { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
   { id: 'Amazon', logo: 'https://play-lh.googleusercontent.com/mZ6pRo5-NnrO9GMwFNrK5kShF0UrN5UOARVAw64_5aFG6NgEHSlq-BX5I8TEXtTOk9s' },
   { id: 'HBO', logo: 'https://frontend-assets.clipsource.com/60dedc6376ad9/hbo-60def166a1502/2024/08/03/66ae50c0ca12f_thumbnail.png' },
   { id: 'Paramount', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/FWS265CNEJEQHF53MCJQ3QR2PA.jpg' },
-  { id: 'Apple', logo: 'https://i.blogs.es/a1d8ea/apple-tv/1200_900.jpeg' },
 ];
 
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorLogin, setErrorLogin] = useState('');
+  
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
-  const [plataformaActiva, setPlataformaActiva] = useState(null);
+  const [plataformaActiva, setPlataformaActiva] = useState(null); 
+  const [busqueda, setBusqueda] = useState('');
   
-  // Estados UI
-  const [item, setItem] = useState(null); 
-  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false); 
-  
-  const btnReproducirRef = useRef(null);
+  const [item, setItem] = useState(null); // Modal Item
+  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
+  const btnReproducirRef = useRef(null); // Para foco en TV
 
-  // --- HELPER PARA IMÁGENES (CORRECCIÓN) ---
+  // --- FUNCIÓN CLAVE PARA ARREGLAR FOTOS ---
   const getImagenUrl = (path) => {
-    if (!path) return '/no-banner.jpg'; // Imagen por defecto si no hay nada
-    if (path.startsWith('http')) return path; // Si ya es link completo, usarlo
-    return `https://image.tmdb.org/t/p/original${path}`; // Si es de TMDB, agregar prefijo
+    if (!path) return 'https://via.placeholder.com/500x281?text=No+Image'; // Fallback
+    if (path.startsWith('http')) return path; // Si ya es link completo, úsalo
+    return `https://image.tmdb.org/t/p/original${path}`; // Si es ruta TMDB, agrégale el prefijo
   };
 
-  // --- CONTROL REMOTO (BACK BUTTON) ---
+  // --- DETECCIÓN DE BOTÓN "ATRÁS" (CONTROL REMOTO) ---
   useEffect(() => {
     const handleBack = (e) => {
+      // 10009 es el código "Back" en Tizen/WebOS/AndroidTV
       if (['Escape', 'Backspace'].includes(e.key) || e.keyCode === 10009) {
         if (verPeliculaCompleta) setVerPeliculaCompleta(false);
         else if (item) setItem(null);
@@ -50,14 +55,14 @@ const Catalogo = () => {
     return () => window.removeEventListener('keydown', handleBack);
   }, [item, verPeliculaCompleta]);
 
-  // --- FOCO AUTOMÁTICO EN MODAL (TV) ---
+  // --- FOCO AUTOMÁTICO EN TV ---
   useEffect(() => {
     if (item && !verPeliculaCompleta && btnReproducirRef.current) {
       setTimeout(() => btnReproducirRef.current.focus(), 100);
     }
   }, [item, verPeliculaCompleta]);
 
-  // --- AUTENTICACIÓN ---
+  // --- AUTH ---
   useEffect(() => {
     const auth = getAuth();
     onAuthStateChanged(auth, (user) => {
@@ -66,26 +71,39 @@ const Catalogo = () => {
     });
   }, []);
 
+  const handleLogin = async (e) => {
+    e.preventDefault(); setErrorLogin('');
+    try { await signInWithEmailAndPassword(getAuth(), email, password); } 
+    catch (error) { setErrorLogin("Error de credenciales"); }
+  };
+
   // --- CARGA DE DATOS ---
   useEffect(() => {
     if (!usuario) return;
-    const cargarContenido = async () => {
+    const cargar = async () => {
       try {
-        const pSnapshot = await getDocs(collection(db, "peliculas"));
-        const data = pSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setTodosLosItems(data);
-        filtrarYOrganizar(data, null);
+        // Carga Pelis
+        const pSnap = await getDocs(collection(db, "peliculas"));
+        // Carga Series (si tienes)
+        const sSnap = await getDocs(collection(db, "series"));
+        
+        const combinados = [];
+        pSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'movie'}));
+        sSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'serie'}));
+
+        setTodosLosItems(combinados);
+        filtrar(combinados, null, '');
       } catch (e) { console.error(e); }
     };
-    cargarContenido();
+    cargar();
   }, [usuario]);
 
-  const filtrarYOrganizar = (items, plat) => {
+  const filtrar = (items, plat, busq) => {
     const agrupado = {};
     items.forEach(p => {
-      // Filtro flexible: si la peli dice "Netflix" y el filtro es "Netflix", pasa.
       if (plat && !p.plataforma_origen?.toLowerCase().includes(plat.toLowerCase())) return;
-      
+      if (busq && !p.titulo?.toLowerCase().includes(busq.toLowerCase())) return;
+
       const generos = p.generos || ["General"];
       generos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
@@ -96,43 +114,53 @@ const Catalogo = () => {
   };
 
   const obtenerUrlVideo = () => {
+    if (!item) return '';
+    // Lógica Servidor HLS
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
   };
 
   if (loadingAuth) return <div className="loading">Cargando...</div>;
-  
-  // LOGIN SIMPLE (Mantenemos tu lógica o diseño de login aquí)
-  if (!usuario) return <div className="login-screen">Inicia sesión...</div>; 
+
+  if (!usuario) {
+    return (
+      <div className="login-container">
+        <form onSubmit={handleLogin} className="login-form">
+          <img src="/logo.svg" alt="Logo" className="login-logo"/>
+          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/>
+          <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>
+          {errorLogin && <p className="error">{errorLogin}</p>}
+          <button type="submit">Ingresar</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="catalogo-wrapper">
       
-      {/* HEADER: LOGO + FILTROS DE PLATAFORMAS (IMÁGENES) */}
+      {/* HEADER */}
       <header className="header-main">
-        <img src="/logo.svg" alt="StreamGo" className="logo-app" />
+        <img src="/logo.svg" alt="StreamGo" className="logo-app" onClick={() => window.location.reload()} />
         
-        <div className="filtros-plataformas">
-          {/* Botón "TODO" */}
-          <button 
-            className={`btn-plat-item text-btn ${!plataformaActiva ? 'activo' : ''}`}
-            onClick={() => { setPlataformaActiva(null); filtrarYOrganizar(todosLosItems, null); }}
+        {/* FILTROS PLATAFORMAS */}
+        <div className="filtros-container">
+          <div 
+            className={`btn-plat text-btn ${!plataformaActiva ? 'activo' : ''}`} 
+            onClick={() => { setPlataformaActiva(null); filtrar(todosLosItems, null, busqueda); }}
             tabIndex="0"
           >
             TODO
-          </button>
-
-          {/* Botones de Logos */}
+          </div>
           {PLATAFORMAS.map(p => (
             <div 
               key={p.id}
-              className={`btn-plat-item img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
+              className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
               onClick={() => { 
-                  const nueva = plataformaActiva === p.id ? null : p.id;
-                  setPlataformaActiva(nueva); 
-                  filtrarYOrganizar(todosLosItems, nueva); 
+                const nueva = plataformaActiva === p.id ? null : p.id;
+                setPlataformaActiva(nueva);
+                filtrar(todosLosItems, nueva, busqueda);
               }}
-              tabIndex="0" // Foco para TV
-              role="button"
+              tabIndex="0"
             >
               <img src={p.logo} alt={p.id} />
             </div>
@@ -140,54 +168,52 @@ const Catalogo = () => {
         </div>
       </header>
 
-      {/* LISTA DE FILAS */}
-      <div className="contenido-principal">
-        {Object.keys(itemsFiltrados).sort().map(genero => (
+      {/* CONTENIDO */}
+      <div className="filas-contenido">
+        {Object.keys(itemsFiltrados).sort().map(g => (
           <Fila 
-            key={genero} 
-            titulo={genero} 
-            peliculas={itemsFiltrados[genero]} 
-            onClickPelicula={(p) => setItem(p)}
+            key={g} 
+            titulo={g} 
+            peliculas={itemsFiltrados[g]} 
+            onClickPelicula={(p) => setItem(p)} 
           />
         ))}
       </div>
 
-      {/* REPRODUCTOR FULLSCREEN */}
+      {/* REPRODUCTOR (TV & CELU) */}
       {verPeliculaCompleta && item && (
         <div className="player-overlay">
+          <button className="btn-volver-player" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           <VideoPlayer src={obtenerUrlVideo()} />
         </div>
       )}
 
-      {/* MODAL DETALLE (CORREGIDO IMAGEN FONDO) */}
+      {/* MODAL DETALLE (Corrección de banner aquí) */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             
-            {/* IMAGEN DE FONDO (BANNER) */}
+            {/* BANNER CON FUNCIÓN CORRECTIVA */}
             <div 
-                className="modal-banner"
-                style={{
-                    backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})`
-                }}
+              className="modal-banner" 
+              style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}
             >
-                <button className="btn-cerrar-modal" onClick={() => setItem(null)}>✕</button>
+              <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
+              
+              {/* Botón Play sobre la imagen (Estilo Netflix) */}
+              <button 
+                ref={btnReproducirRef}
+                className="btn-play-banner"
+                onClick={() => setVerPeliculaCompleta(true)}
+                tabIndex="0"
+              >
+                ▶ REPRODUCIR
+              </button>
             </div>
 
             <div className="modal-info">
-                <h2>{item.titulo}</h2>
-                <p className="modal-desc">{item.descripcion}</p>
-                
-                <div className="modal-actions">
-                <button 
-                    ref={btnReproducirRef} 
-                    className="btn-play" 
-                    onClick={() => setVerPeliculaCompleta(true)}
-                    tabIndex="0"
-                >
-                    ▶ REPRODUCIR
-                </button>
-                </div>
+              <h2>{item.titulo}</h2>
+              <p className="modal-desc">{item.descripcion || item.overview}</p>
             </div>
           </div>
         </div>

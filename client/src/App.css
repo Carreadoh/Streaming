@@ -1,5 +1,5 @@
 /* =================================================================
-   1. ESTILOS BASE (CELULAR / TABLET VERTICAL)
+   1. ESTILOS BASE (CELULAR - PROLIJO)
    ================================================================= */
 :root {
   --bg-color: #141414;
@@ -8,198 +8,151 @@
 }
 
 body {
-  margin: 0; 
-  padding: 0;
+  margin: 0; padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: 'Helvetica Neue', Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* --- LOGIN SIMPLE --- */
+.login-container { display: flex; height: 100vh; align-items: center; justify-content: center; background: #000; }
+.login-form { display: flex; flex-direction: column; gap: 15px; width: 300px; }
+.login-logo { height: 50px; margin-bottom: 20px; }
+.login-form input { padding: 15px; border-radius: 5px; border: none; background: #333; color: white; }
+.login-form button { padding: 15px; background: var(--red-netflix); color: white; border: none; border-radius: 5px; font-weight: bold; }
 
 /* --- HEADER MÓVIL --- */
 .header-main {
-  padding: 15px;
-  background: #000;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column; /* Logo arriba, filtros abajo */
-  gap: 15px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(0,0,0,0.95);
+  padding: 10px 15px;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
+.logo-app { height: 30px; align-self: flex-start; cursor: pointer; }
 
-.logo-app {
-  height: 30px;
-  align-self: center; /* Logo centrado */
-}
-
-/* Contenedor de filtros deslizable con el dedo */
-.filtros-plataformas {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto; /* Scroll horizontal */
-  padding-bottom: 5px;
-  align-items: center;
+/* Filtros deslizable con el dedo */
+.filtros-container {
+  display: flex; gap: 10px; align-items: center;
+  overflow-x: auto; padding-bottom: 5px;
   scrollbar-width: none; /* Ocultar barra */
 }
-.filtros-plataformas::-webkit-scrollbar { display: none; }
+.filtros-container::-webkit-scrollbar { display: none; }
 
-/* Botón de plataforma (Circulo o cuadrado redondeado en móvil) */
-.btn-plat-item {
-  flex-shrink: 0;
-  width: 45px;
-  height: 45px;
-  border-radius: 50%; /* Redondos en móvil queda prolijo */
-  background: #333;
+/* Botones Plataformas (Móvil = Redondos y chicos) */
+.btn-plat {
+  flex-shrink: 0; cursor: pointer; transition: transform 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.img-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #222; overflow: hidden;
   border: 2px solid transparent;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s;
 }
+.img-btn img { width: 100%; height: 100%; object-fit: cover; }
+.img-btn.activo { border-color: var(--red-netflix); transform: scale(1.1); }
 
-.btn-plat-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.btn-plat-item.activo {
-  border-color: var(--red-netflix);
-  transform: scale(1.1);
-}
-
-/* Botón de texto "TODO" */
 .text-btn {
-  width: auto;
-  padding: 0 15px;
-  border-radius: 20px;
-  font-weight: bold;
-  font-size: 12px;
-  color: #ccc;
+  font-size: 12px; font-weight: bold; background: #333;
+  padding: 8px 15px; border-radius: 20px; color: #ccc;
 }
-.text-btn.activo {
-  background: var(--red-netflix);
-  color: white;
-}
+.text-btn.activo { background: var(--red-netflix); color: white; }
 
 /* --- FILAS MÓVIL --- */
-.fila-container {
-  margin: 20px 0;
-}
-.fila-titulo {
-  font-size: 16px;
-  margin-left: 15px;
-  margin-bottom: 10px;
-  font-weight: 600;
-  color: #e5e5e5;
-}
+.fila-container { margin: 20px 0; padding-left: 15px; }
+.fila-titulo { font-size: 16px; margin-bottom: 10px; font-weight: 600; color: #e5e5e5; }
 .fila-scroll {
-  display: flex;
-  gap: 10px;
-  padding: 0 15px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: flex; gap: 10px; overflow-x: auto;
+  padding-right: 15px; scrollbar-width: none;
 }
 .movie-card {
-  flex: 0 0 auto;
-  width: 110px;
-  border-radius: 4px;
-  overflow: hidden;
+  flex: 0 0 auto; width: 110px; aspect-ratio: 2/3;
+  border-radius: 4px; overflow: hidden; background: #222;
 }
-.movie-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.movie-overlay { display: none; } /* Ocultar títulos en poster móvil */
+.movie-img { width: 100%; height: 100%; object-fit: cover; }
+.movie-overlay { display: none; } /* Sin títulos encima en móvil */
 
-/* --- MODAL MÓVIL --- */
+/* --- MODAL MÓVIL (Hoja inferior) --- */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(0,0,0,0.8);
-  display: flex; align-items: flex-end; /* Hoja inferior en móvil */
+  display: flex; align-items: flex-end; /* Sale de abajo */
 }
 .modal-content {
-  background: #1f1f1f;
-  width: 100%;
+  width: 100%; background: #1a1a1a;
   border-radius: 15px 15px 0 0;
-  overflow: hidden;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden; max-height: 85vh;
+  animation: slideUp 0.3s ease-out;
 }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
 .modal-banner {
-  width: 100%;
-  height: 200px;
-  background-size: cover;
-  background-position: center;
+  width: 100%; height: 220px;
+  background-size: cover; background-position: center;
   position: relative;
 }
-.btn-cerrar-modal {
+.btn-cerrar {
   position: absolute; top: 10px; right: 10px;
-  background: rgba(0,0,0,0.5); color: white;
-  border: none; border-radius: 50%; width: 30px; height: 30px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(0,0,0,0.5); color: white; border: none; font-size: 18px;
+}
+.btn-play-banner {
+  position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+  background: white; color: black; border: none;
+  padding: 10px 30px; border-radius: 4px; font-weight: bold; font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 .modal-info { padding: 20px; }
-.btn-play {
-  width: 100%;
-  padding: 12px;
-  background: var(--red-netflix);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
-  margin-top: 15px;
-  font-size: 16px;
-}
+.modal-desc { font-size: 14px; color: #ccc; line-height: 1.5; }
+
+/* Reproductor Full */
 .player-overlay { position: fixed; inset: 0; z-index: 2000; background: black; }
+.btn-volver-player {
+  position: absolute; top: 20px; left: 20px; z-index: 2001;
+  background: rgba(0,0,0,0.5); color: white; border: 1px solid white;
+  padding: 8px 15px; border-radius: 5px; cursor: pointer;
+}
 
 
 /* =================================================================
-   2. DISEÑO TV (MEDIA QUERY) - ESTILO NETFLIX
+   2. DISEÑO TV (SOLO PANTALLAS GRANDES APAISADAS)
    ================================================================= */
 @media screen and (min-width: 960px) and (orientation: landscape) {
 
-  /* HEADER TV */
+  /* HEADER TV (Transparente) */
   .header-main {
-    flex-direction: row;
-    justify-content: space-between;
-    background: linear-gradient(rgba(0,0,0,0.9), transparent);
+    flex-direction: row; justify-content: space-between; align-items: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
     padding: 30px 50px;
-    position: relative; /* No sticky en TV */
+    position: relative; /* No sticky */
+    box-shadow: none;
   }
   .logo-app { height: 50px; }
 
-  /* Filtros TV (Botones más grandes y con foco) */
-  .btn-plat-item {
-    width: 60px;
-    height: 60px;
-    border-radius: 10px; /* Cuadrados redondeados en TV */
+  /* Filtros TV (Botones grandes y focuseables) */
+  .btn-plat { margin: 0 5px; }
+  .img-btn {
+    width: 60px; height: 60px; border-radius: 12px; /* Cuadrados */
     background: rgba(255,255,255,0.1);
   }
-  .btn-plat-item:focus {
-    transform: scale(1.2);
-    border: 3px solid white;
-    background: white;
-    z-index: 10;
+  .img-btn:focus {
+    transform: scale(1.15); border: 3px solid white; background: white; z-index: 10;
+    box-shadow: 0 0 20px rgba(255,255,255,0.3);
   }
-  .text-btn { font-size: 16px; padding: 0 25px; height: 40px; }
+  .text-btn { font-size: 16px; padding: 10px 30px; }
   .text-btn:focus { transform: scale(1.1); background: white; color: black; }
 
   /* FILAS TV (Scroll Magnético) */
   .fila-container { padding-left: 50px; margin-bottom: 40px; }
-  .fila-titulo { font-size: 1.5rem; margin-left: 0; }
+  .fila-titulo { font-size: 1.6rem; margin-left: 0; }
   
   .fila-scroll {
-    gap: 20px;
-    overflow-x: auto;
-    padding: 30px 0; /* Espacio para pop-up */
+    gap: 20px; padding: 30px 0; /* Espacio para pop-up */
     scroll-behavior: smooth;
+    overflow-x: auto; /* Necesario para que la TV empuje el contenido */
   }
   
   .movie-card {
@@ -208,36 +161,40 @@ body {
     transition: transform 0.3s;
   }
 
-  /* EFECTO FOCO TV */
+  /* FOCUS TV */
   .movie-card:focus {
     transform: scale(1.15);
     border-color: white;
     z-index: 10;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    outline: none;
   }
 
   /* MODAL TV (Centrado y grande) */
   .modal-overlay { align-items: center; justify-content: center; }
   .modal-content {
-    width: 800px;
-    max-height: none;
-    border-radius: 10px;
-    flex-direction: row; /* Imagen izq, texto der */
+    width: 900px; max-width: 90%; height: auto;
+    border-radius: 10px; background: #141414;
+    display: flex; flex-direction: row; /* Diseño horizontal */
+    animation: none;
   }
   .modal-banner {
-    width: 60%;
-    height: 450px; /* Altura fija */
+    width: 60%; height: 450px;
+    border-right: 1px solid #333;
   }
   .modal-info {
-    width: 40%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    width: 40%; display: flex; flex-direction: column; justify-content: center;
+    padding: 40px;
   }
-  .btn-play:focus {
-    transform: scale(1.05);
-    background: white;
-    color: black;
-    border: 3px solid var(--red-netflix);
+  .modal-info h2 { font-size: 2rem; margin-bottom: 20px; }
+  .modal-desc { font-size: 1.1rem; }
+  
+  .btn-play-banner {
+    bottom: 40px; font-size: 1.2rem; padding: 15px 40px;
   }
+  .btn-play-banner:focus {
+    transform: scale(1.1); background: var(--red-netflix); color: white; border: 3px solid white;
+  }
+  
+  .btn-volver-player { display: none; } /* En TV se usa botón "Atrás" del control */
 }
