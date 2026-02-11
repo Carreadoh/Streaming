@@ -5,16 +5,17 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebas
 import axios from 'axios';
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
-import '../App.css'; // Usamos el CSS global potente
+import '../App.css'; 
 
-const URL_SERVIDOR = 'https://cine.neveus.lat'; // Tu servidor de streaming
+const URL_SERVIDOR = 'https://cine.neveus.lat'; 
 
-// Configuración de Plataformas (Iconos)
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
   { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
   { id: 'Amazon', logo: 'https://play-lh.googleusercontent.com/mZ6pRo5-NnrO9GMwFNrK5kShF0UrN5UOARVAw64_5aFG6NgEHSlq-BX5I8TEXtTOk9s' },
   { id: 'HBO', logo: 'https://frontend-assets.clipsource.com/60dedc6376ad9/hbo-60def166a1502/2024/08/03/66ae50c0ca12f_thumbnail.png' },
+  { id: 'Paramount', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/FWS265CNEJEQHF53MCJQ3QR2PA.jpg' },
+  { id: 'Apple', logo: 'https://i.blogs.es/a1d8ea/apple-tv/1200_900.jpeg' },
 ];
 
 const Catalogo = () => {
@@ -24,17 +25,22 @@ const Catalogo = () => {
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null);
   
-  // Estados de UI
-  const [item, setItem] = useState(null); // Peli seleccionada (Modal)
-  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false); // Reproductor activo
+  // Estados UI
+  const [item, setItem] = useState(null); 
+  const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false); 
   
-  // Referencia para el foco automático en TV
   const btnReproducirRef = useRef(null);
 
-  // --- 1. DETECCIÓN DE TECLA "ATRÁS" (CONTROL REMOTO) ---
+  // --- HELPER PARA IMÁGENES (CORRECCIÓN) ---
+  const getImagenUrl = (path) => {
+    if (!path) return '/no-banner.jpg'; // Imagen por defecto si no hay nada
+    if (path.startsWith('http')) return path; // Si ya es link completo, usarlo
+    return `https://image.tmdb.org/t/p/original${path}`; // Si es de TMDB, agregar prefijo
+  };
+
+  // --- CONTROL REMOTO (BACK BUTTON) ---
   useEffect(() => {
     const handleBack = (e) => {
-      // Códigos: Escape (PC), 10009 (Tizen/WebOS Back), 8 (Backspace)
       if (['Escape', 'Backspace'].includes(e.key) || e.keyCode === 10009) {
         if (verPeliculaCompleta) setVerPeliculaCompleta(false);
         else if (item) setItem(null);
@@ -44,14 +50,14 @@ const Catalogo = () => {
     return () => window.removeEventListener('keydown', handleBack);
   }, [item, verPeliculaCompleta]);
 
-  // --- 2. FOCO AUTOMÁTICO AL ABRIR MODAL (TV) ---
+  // --- FOCO AUTOMÁTICO EN MODAL (TV) ---
   useEffect(() => {
     if (item && !verPeliculaCompleta && btnReproducirRef.current) {
       setTimeout(() => btnReproducirRef.current.focus(), 100);
     }
   }, [item, verPeliculaCompleta]);
 
-  // --- AUTENTICACIÓN Y CARGA DE DATOS ---
+  // --- AUTENTICACIÓN ---
   useEffect(() => {
     const auth = getAuth();
     onAuthStateChanged(auth, (user) => {
@@ -60,6 +66,7 @@ const Catalogo = () => {
     });
   }, []);
 
+  // --- CARGA DE DATOS ---
   useEffect(() => {
     if (!usuario) return;
     const cargarContenido = async () => {
@@ -76,7 +83,9 @@ const Catalogo = () => {
   const filtrarYOrganizar = (items, plat) => {
     const agrupado = {};
     items.forEach(p => {
-      if (plat && !p.plataforma_origen?.includes(plat)) return;
+      // Filtro flexible: si la peli dice "Netflix" y el filtro es "Netflix", pasa.
+      if (plat && !p.plataforma_origen?.toLowerCase().includes(plat.toLowerCase())) return;
+      
       const generos = p.generos || ["General"];
       generos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
@@ -87,37 +96,46 @@ const Catalogo = () => {
   };
 
   const obtenerUrlVideo = () => {
-    // Lógica para tu servidor HLS
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
   };
 
   if (loadingAuth) return <div className="loading">Cargando...</div>;
-  if (!usuario) return <div className="login">Login... (Tu código de login acá)</div>;
+  
+  // LOGIN SIMPLE (Mantenemos tu lógica o diseño de login aquí)
+  if (!usuario) return <div className="login-screen">Inicia sesión...</div>; 
 
   return (
     <div className="catalogo-wrapper">
       
-      {/* HEADER: Se adapta solo por CSS */}
+      {/* HEADER: LOGO + FILTROS DE PLATAFORMAS (IMÁGENES) */}
       <header className="header-main">
-        <img src="/logo.svg" alt="StreamGo" className="logo" />
+        <img src="/logo.svg" alt="StreamGo" className="logo-app" />
         
-        <div className="filtros-container">
+        <div className="filtros-plataformas">
+          {/* Botón "TODO" */}
           <button 
-            className={`btn-filtro ${!plataformaActiva ? 'activo' : ''}`}
+            className={`btn-plat-item text-btn ${!plataformaActiva ? 'activo' : ''}`}
             onClick={() => { setPlataformaActiva(null); filtrarYOrganizar(todosLosItems, null); }}
             tabIndex="0"
           >
-            Todo
+            TODO
           </button>
+
+          {/* Botones de Logos */}
           {PLATAFORMAS.map(p => (
-            <button
+            <div 
               key={p.id}
-              className={`btn-filtro ${plataformaActiva === p.id ? 'activo' : ''}`}
-              onClick={() => { setPlataformaActiva(p.id); filtrarYOrganizar(todosLosItems, p.id); }}
-              tabIndex="0"
+              className={`btn-plat-item img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
+              onClick={() => { 
+                  const nueva = plataformaActiva === p.id ? null : p.id;
+                  setPlataformaActiva(nueva); 
+                  filtrarYOrganizar(todosLosItems, nueva); 
+              }}
+              tabIndex="0" // Foco para TV
+              role="button"
             >
-              {p.id}
-            </button>
+              <img src={p.logo} alt={p.id} />
+            </div>
           ))}
         </div>
       </header>
@@ -134,41 +152,42 @@ const Catalogo = () => {
         ))}
       </div>
 
-      {/* REPRODUCTOR (FULLSCREEN) */}
+      {/* REPRODUCTOR FULLSCREEN */}
       {verPeliculaCompleta && item && (
-        <div style={{position:'fixed', inset:0, zIndex:9999, background:'black'}}>
+        <div className="player-overlay">
           <VideoPlayer src={obtenerUrlVideo()} />
         </div>
       )}
 
-      {/* MODAL DETALLE */}
+      {/* MODAL DETALLE (CORREGIDO IMAGEN FONDO) */}
       {item && !verPeliculaCompleta && (
-        <div className="modal-overlay" onClick={() => setItem(null)} 
-             style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          
-          <div className="modal-content" onClick={e => e.stopPropagation()} 
-               style={{background:'#1a1a1a', padding:'20px', borderRadius:'10px', maxWidth:'500px', width:'90%'}}>
+        <div className="modal-overlay" onClick={() => setItem(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             
-            <h2>{item.titulo}</h2>
-            <p>{item.descripcion}</p>
-            
-            <div style={{marginTop:'20px', display:'flex', gap:'10px'}}>
-              <button 
-                ref={btnReproducirRef} /* EL FOCO CAE ACÁ EN TV */
-                className="btn-accion" 
-                onClick={() => setVerPeliculaCompleta(true)}
-                style={{padding:'10px 20px', background:'red', color:'white', border:'none', fontSize:'16px', cursor:'pointer'}}
-                tabIndex="0"
-              >
-                ▶ Reproducir
-              </button>
-              <button 
-                onClick={() => setItem(null)}
-                style={{padding:'10px 20px', background:'#333', color:'white', border:'none', fontSize:'16px', cursor:'pointer'}}
-                tabIndex="0"
-              >
-                Cerrar
-              </button>
+            {/* IMAGEN DE FONDO (BANNER) */}
+            <div 
+                className="modal-banner"
+                style={{
+                    backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})`
+                }}
+            >
+                <button className="btn-cerrar-modal" onClick={() => setItem(null)}>✕</button>
+            </div>
+
+            <div className="modal-info">
+                <h2>{item.titulo}</h2>
+                <p className="modal-desc">{item.descripcion}</p>
+                
+                <div className="modal-actions">
+                <button 
+                    ref={btnReproducirRef} 
+                    className="btn-play" 
+                    onClick={() => setVerPeliculaCompleta(true)}
+                    tabIndex="0"
+                >
+                    ▶ REPRODUCIR
+                </button>
+                </div>
             </div>
           </div>
         </div>
