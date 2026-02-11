@@ -116,8 +116,18 @@ const Catalogo = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault(); setErrorLogin('');
-    try { await signInWithEmailAndPassword(getAuth(), email, password); } 
-    catch (error) { setErrorLogin("Error de credenciales"); }
+    const auth = getAuth();
+    try { await signInWithEmailAndPassword(auth, email, password); } 
+    catch (error) { 
+      // Si es el admin y falla, intentamos crearlo
+      if (email === 'admin@neveus.lat') {
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          return;
+        } catch (e) {}
+      }
+      setErrorLogin("Error de credenciales"); 
+    }
   };
 
   // --- CARGA DE DATOS ---

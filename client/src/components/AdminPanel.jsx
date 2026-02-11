@@ -60,6 +60,13 @@ const AdminPanel = () => {
       if (emailLogin !== EMAIL_PERMITIDO) throw new Error("Acceso denegado");
       await signInWithEmailAndPassword(auth, emailLogin, passwordLogin);
     } catch (error) {
+      // AUTO-CREACIÓN: Si es el admin y no existe, lo creamos ahora mismo
+      if (emailLogin === EMAIL_PERMITIDO) {
+        try {
+          await createUserWithEmailAndPassword(auth, emailLogin, passwordLogin);
+          return; // Éxito, se loguea automáticamente
+        } catch (e) {}
+      }
       setErrorLogin("Credenciales incorrectas o no autorizadas.");
     }
   };
