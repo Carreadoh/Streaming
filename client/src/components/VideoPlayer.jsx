@@ -1,97 +1,132 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import Plyr from 'plyr';
-// Asegúrate de tener el CSS: <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+import 'plyr/dist/plyr.css';
 
 const VideoPlayer = ({ src }) => {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const playerRef = useRef(null);
-  
-  // Estado para saber si estamos listos para mostrar el reproductor
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
-    const hls = new Hls();
+    // 1. Configuración de HLS
+    const hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+    });
+    hlsRef.current = hls;
+
     hls.loadSource(src);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      // 1. Inicializamos Plyr con el color rojo
-      const player = new Plyr(video, {
-        controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen'],
-        settings: ['audio', 'speed'], // Forzamos que 'audio' esté en el menú
-        i18n: { audio: 'Idioma', speed: 'Velocidad' }
-      });
-
-      // 2. EL HACK DEFINITIVO: Inyectamos los idiomas en el menú de Plyr
-      if (hls.audioTracks.length > 1) {
-        const audioOptions = hls.audioTracks.map((track, index) => ({
-          label: track.name || `Idioma ${index + 1}`,
-          value: index,
-        }));
-
-        // Actualizamos las opciones de Plyr manualmente
-        player.setOptions({
-          audio: {
-            options: audioOptions,
-            selected: hls.audioTrack,
-            onChange: (index) => {
-              hls.audioTrack = index;
-              console.log("Cambiando audio a:", hls.audioTracks[index].name);
-            },
-          },
+      // 2. Inicialización de Plyr (Solo si no existe)
+      if (!playerRef.current) {
+        playerRef.current = new Plyr(video, {
+          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'fullscreen'],
+          settings: ['audio', 'speed'],
+          // FIX ICONOS INVISIBLES: Forzamos el CDN oficial
+          iconUrl: 'https://cdn.plyr.io/3.7.8/plyr.svg',
+          i18n: { audio: 'Idioma', speed: 'Velocidad' },
+          tooltips: { controls: true, seek: true }
         });
+
+        // 3. Inyección de Audios
+        if (hls.audioTracks.length > 1) {
+          const audioOptions = hls.audioTracks.map((track, index) => ({
+            label: track.name || `Idioma ${index + 1}`,
+            value: index,
+          }));
+
+          playerRef.current.setOptions({
+            audio: {
+              options: audioOptions,
+              selected: hls.audioTrack,
+              onChange: (index) => {
+                hls.audioTrack = index;
+              },
+            },
+          });
+        }
       }
       
-      video.play();
+      setIsReady(true);
+      video.play().catch(() => console.log("Autoplay bloqueado"));
     });
 
-    return () => hls.destroy();
+    // Limpieza al desmontar
+    return () => {
+      if (hlsRef.current) hlsRef.current.destroy();
+      if (playerRef.current) playerRef.current.destroy();
+    };
   }, [src]);
 
   return (
-    // CONTENEDOR FIX: height: 100vh o fixed para asegurar que no se corte
-    <div style={{ width: '100%', height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      
-      {/* Wrapper de video */}
-      <div style={{ width: '100%', maxWidth: '100%', opacity: isReady ? 1 : 0, transition: 'opacity 0.5s' }}>
-          <video
-            ref={videoRef}
-            className="plyr-react plyr"
-            playsInline
-            controls
-            crossOrigin="anonymous"
-            style={{ width: '100%', height: 'auto' }}
-          />
+    <div className="video-container">
+      <div className={`video-wrapper ${isReady ? 'ready' : ''}`}>
+        <video
+          ref={videoRef}
+          className="plyr-react plyr"
+          playsInline
+          crossOrigin="anonymous"
+        />
       </div>
 
       <style>{`
+        .video-container {
+          width: 100%;
+          height: 100vh;
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .video-wrapper {
+          width: 100%;
+          max-width: 1280px; /* Opcional: limita el ancho máximo */
+          opacity: 0;
+          transition: opacity 0.5s ease;
+        }
+
+        .video-wrapper.ready {
+          opacity: 1;
+        }
+
         /* ROJO NETFLIX */
         :root {
           --plyr-color-main: #e50914 !important;
-          --plyr-video-control-color: #ffffff;
-        }
-        
-        /* FORZAR VISIBILIDAD DEL MENÚ DE AUDIO */
-        /* Esto obliga al botón a aparecer aunque Plyr quiera ocultarlo */
-        .plyr__menu__container [data-plyr="audio"] {
-            display: block !important;
         }
 
-        /* ARREGLO DE CONTROLES OCULTOS */
-        /* Aseguramos que la barra de control tenga espacio y esté encima */
-        .plyr__controls {
-            padding-bottom: 20px !important;
-            z-index: 1000 !important;
+        /* FIX CONTROLES: Asegura que Plyr se mantenga dentro del wrapper */
+        .plyr {
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        
-        /* Ajuste para que el menú no se corte por abajo */
+
+        /* Evitar que los controles se desplacen a mitad de pantalla */
+        .plyr__controls {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding-top: 40px !important; /* Degradado para que se vea mejor */
+          background: linear-gradient(transparent, rgba(0,0,0,0.7)) !important;
+        }
+
+        /* Forzar visibilidad de iconos si el SVG falla localmente */
+        .plyr__control svg {
+          filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
+        }
+
         .plyr__menu__container {
-            bottom: 50px !important; 
+          bottom: 60px !important;
         }
       `}</style>
     </div>
