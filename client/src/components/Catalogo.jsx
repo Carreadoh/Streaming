@@ -105,6 +105,20 @@ const Catalogo = () => {
     }
   }, [item, verPeliculaCompleta]);
 
+  // --- ROTACIÓN AUTOMÁTICA (LANDSCAPE AL REPRODUCIR) ---
+  useEffect(() => {
+    const rotarPantalla = async () => {
+      try {
+        if (verPeliculaCompleta) {
+          await ScreenOrientation.lock({ orientation: 'landscape' });
+        } else {
+          await ScreenOrientation.lock({ orientation: 'portrait' });
+        }
+      } catch (e) { console.warn("No se pudo rotar pantalla", e); }
+    };
+    rotarPantalla();
+  }, [verPeliculaCompleta]);
+
   // --- AUTH ---
   useEffect(() => {
     const auth = getAuth();
