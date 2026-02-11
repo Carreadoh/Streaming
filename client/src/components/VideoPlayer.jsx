@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import Plyr from 'plyr';
-// Asegúrate de tener el CSS en index.html: <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+// IMPORTANTE: Asegúrate de tener <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" /> en tu index.html
 
-const VideoPlayer = ({ src, subtitleSrc }) => {
+const VideoPlayer = ({ src }) => {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const playerRef = useRef(null);
@@ -12,107 +12,64 @@ const VideoPlayer = ({ src, subtitleSrc }) => {
     const video = videoRef.current;
     if (!video || !src) return;
 
-    // Configuración base de Plyr
-    const defaultOptions = {
+    // --- CONFIGURACIÓN VISUAL (ROJO Y CONTROLES) ---
+    const plyrOptions = {
+      // Color rojo se define en CSS, pero aquí aseguramos que los controles existan
       controls: [
         'play-large', 'play', 'progress', 'current-time', 
-        'mute', 'volume', 'captions', 'settings', 'fullscreen'
+        'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'
       ],
-      settings: ['captions', 'audio', 'quality', 'speed'], // Orden del menú
+      // EL ORDEN DEL MENÚ DE ENGRANAJE
+      settings: ['captions', 'audio', 'quality', 'speed'], 
       i18n: {
-        restart: 'Reiniciar',
-        play: 'Reproducir',
-        pause: 'Pausar',
-        settings: 'Configuración',
-        audio: 'Idioma',
-        captions: 'Subtítulos',
-        quality: 'Calidad',
-        speed: 'Velocidad',
-        disabled: 'Desactivado',
-        enabled: 'Activado',
+        restart: 'Reiniciar', play: 'Reproducir', pause: 'Pausar', 
+        settings: 'Configuración', audio: 'Idioma', captions: 'Subtítulos',
+        quality: 'Calidad', speed: 'Velocidad', normal: 'Normal',
       },
-      captions: { active: true, update: true, language: 'es' }, // Subtítulos activos por defecto si existen
+      // Activar subtítulos por defecto si existen
+      captions: { active: true, language: 'es', update: true },
       autoplay: true,
     };
 
-    // --- Función para inyectar pistas a Plyr ---
-    const updatePlyrState = (hls, player) => {
-      // 1. Preparamos los audios detectados por HLS
-      const audioTracks = hls.audioTracks.map((track, index) => ({
-        label: track.name || `Audio ${index + 1}`,
-        language: track.lang || `lang-${index}`,
-        active: track.default || index === hls.audioTrack, // Marca el activo
-      }));
+    // --- FUNCIÓN PARA ENGAÑAR A PLYR (POLYFILL DE AUDIO) ---
+    // Esto hace que Plyr crea que el navegador tiene soporte nativo de audio tracks
+    const polyfillAudioTracks = (hls) => {
+      if (!hls.audioTracks || hls.audioTracks.length === 0) return;
 
-      // 2. Preparamos los subtítulos (Si pasaste un .vtt externo)
-      const tracks = [];
-      
-      // Si tenemos audios, los agregamos como "tracks" personalizados para que Plyr genere el menú
-      // Plyr usa un formato específico en su objeto 'source' para generar menús
-      
-      // NOTA: Para cambiar el source sin reiniciar el video, usamos un objeto source nuevo
-      // preservando el tiempo actual si es posible, pero Plyr v3 suele reiniciar al cambiar source.
-      // Por eso, lo hacemos SOLO al inicio (MANIFEST_PARSED).
-      
-      const plyrSource = {
-        type: 'video',
-        title: 'Pelicula',
-        sources: [
-          {
-            src: src,
-            type: 'application/x-mpegURL',
-          },
-        ],
-        // Aquí inyectamos los audios para que aparezca el menú "Idioma"
-        // Plyr usa la propiedad 'tracks' generalmente para VTT, pero manipularemos el UI después
-        // O usamos el hack de inyección de opciones.
-        
-        // Si hay subtítulo externo (.vtt), lo agregamos aquí
-        tracks: subtitleSrc ? [
-          {
-            kind: 'captions',
-            label: 'Español',
-            srclang: 'es',
-            src: subtitleSrc,
-            default: true,
+      // Creamos un objeto que imita la API nativa de audioTracks del navegador
+      const fakeAudioTracks = hls.audioTracks.map((track, index) => {
+        return {
+          id: index,
+          kind: 'translation',
+          label: track.name || `Idioma ${index + 1}`,
+          language: track.lang || `lang-${index}`,
+          enabled: index === hls.audioTrack // True si es el actual
+        };
+      });
+
+      // Sobreescribimos la propiedad audioTracks del elemento video
+      // Plyr lee esto para generar el menú
+      Object.defineProperty(video, 'audioTracks', {
+        get: () => fakeAudioTracks,
+        configurable: true
+      });
+
+      // Interceptamos cuando Plyr intenta cambiar el audio
+      // Plyr pondrá 'enabled = true' en una pista, nosotros detectamos cuál y avisamos a HLS
+      fakeAudioTracks.forEach((fakeTrack, index) => {
+        Object.defineProperty(fakeTrack, 'enabled', {
+          get: () => index === hls.audioTrack,
+          set: (value) => {
+            if (value === true) {
+              hls.audioTrack = index;
+              console.log(`🔊 Audio cambiado a: ${fakeTrack.label}`);
+            }
           }
-        ] : [],
-      };
-
-      // Asignamos el source
-      player.source = plyrSource;
-
-      // 3. HACK CRÍTICO PARA EL AUDIO
-      // Plyr no soporta nativamente el cambio de pistas de audio HLS via UI en Chrome.
-      // Tenemos que interceptar el evento de Plyr y mandarlo a HLS.
-      
-      // Sin embargo, la forma más limpia en React es dejar que Plyr renderice y nosotros
-      // usamos el API de HLS.js. Como Plyr borra las opciones de audio si no detecta soporte nativo,
-      // la única forma de tener el botón es inyectar controles custom o usar un plugin.
-      
-      // PERO, intentemos exponer las pistas a Plyr mediante un getter falso en el elemento video
-      // Esto suele engañar a Plyr para que muestre el botón.
-      if (hls.audioTracks.length > 1) {
-          const fakeAudioTracks = hls.audioTracks.map((t, i) => ({
-              id: i,
-              label: t.name,
-              language: t.lang,
-              enabled: i === hls.audioTrack,
-              kind: 'main'
-          }));
-          
-          // Sobreescribimos la propiedad audioTracks del elemento video HTML5
-          // para que Plyr crea que el navegador lo soporta
-          Object.defineProperty(video, 'audioTracks', {
-              get: () => fakeAudioTracks,
-              configurable: true
-          });
-      }
+        });
+      });
     };
 
     // --- INICIALIZACIÓN ---
-    
-    // 1. Iniciamos HLS primero
     if (Hls.isSupported() && src.includes('.m3u8')) {
       const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
       hlsRef.current = hls;
@@ -121,72 +78,84 @@ const VideoPlayer = ({ src, subtitleSrc }) => {
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log("🎬 HLS Cargado. Audios:", hls.audioTracks);
+        console.log("🎬 HLS Cargado. Pistas:", hls.audioTracks);
 
-        // 2. Iniciamos Plyr DESPUÉS de cargar HLS
+        // 1. Aplicamos el Hack para que aparezca el menú de audio
+        polyfillAudioTracks(hls);
+
+        // 2. Iniciamos Plyr DESPUÉS de aplicar el hack
         if (!playerRef.current) {
-           playerRef.current = new Plyr(video, defaultOptions);
-        }
-        const player = playerRef.current;
-
-        // Intentamos configurar el audio trick
-        if (hls.audioTracks.length > 1) {
-             // Listener para cambio de idioma en Plyr
-             // Plyr dispara 'languagechange' cuando cambia subtítulos o audio
-             // Necesitamos mapear la UI de Plyr al HLS
-             
-             // FORZAMOS LA UI:
-             // Como Plyr es muy estricto, si no ve pistas nativas, no muestra el botón.
-             // La opción más robusta hoy día es crear el botón manualmente o usar el hack de defineProperty arriba.
-             updatePlyrState(hls, player);
+          playerRef.current = new Plyr(video, plyrOptions);
         }
         
-        video.play().catch(() => {});
+        // Forzamos reproducción
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(() => console.log("Autoplay bloqueado por el navegador"));
+        }
       });
       
-      // Sincronizar cambio de audio (Si logramos que aparezca el botón)
-      // Si el usuario cambia el idioma en el menú de Plyr
-      // Plyr intentará cambiar 'video.audioTracks[i].enabled = true'
-      // Nosotros escuchamos ese cambio? No, Plyr lo hace interno.
-      
-      // Alternativa: Escuchar evento de Plyr
-      if (playerRef.current) {
-          playerRef.current.on('languagechange', () => {
-              // Este evento es genérico.
-              // Lo ideal es verificar qué idioma seleccionó Plyr y actualizar HLS.
-              setTimeout(() => {
-                  const currentLang = playerRef.current.language; // 'es' o 'en'
-                  const trackIndex = hls.audioTracks.findIndex(t => t.lang && t.lang.startsWith(currentLang));
-                  if (trackIndex !== -1) {
-                      hls.audioTrack = trackIndex;
-                      console.log("🔊 Audio cambiado a:", hls.audioTracks[trackIndex].name);
-                  }
-              }, 100);
-          });
-      }
+      // Manejo de errores de red
+      hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              hls.startLoad();
+          }
+      });
 
     } else {
-      // Soporte nativo
+      // Soporte nativo (Safari o MP4)
       video.src = src;
-      playerRef.current = new Plyr(video, defaultOptions);
+      playerRef.current = new Plyr(video, plyrOptions);
     }
 
+    // Limpieza
     return () => {
       if (hlsRef.current) hlsRef.current.destroy();
       if (playerRef.current) playerRef.current.destroy();
     };
-  }, [src, subtitleSrc]);
+  }, [src]);
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <video
         ref={videoRef}
         className="plyr-react plyr"
         playsInline
-        controls
+        controls // Dejamos controls nativos como fallback inicial
         crossOrigin="anonymous"
         style={{ width: '100%', height: '100%' }}
       />
+      
+      {/* --- ESTILOS CSS FORZADOS (ROJO NETFLIX) --- */}
+      <style>{`
+        /* Color Principal Rojo */
+        :root {
+          --plyr-color-main: #e50914 !important; 
+          --plyr-video-control-color: #ffffff;
+        }
+
+        /* Forzar que el menú de audio aparezca si Plyr intenta ocultarlo */
+        .plyr__menu__container [data-plyr="audio"] {
+            display: block !important;
+        }
+
+        /* Ajustes visuales del botón y slider */
+        .plyr--full-ui input[type=range] {
+            color: #e50914 !important;
+        }
+        .plyr__control--overlaid-action {
+            background: rgba(229, 9, 20, 0.8) !important;
+        }
+        .plyr__control--overlaid-action:hover {
+            background: #e50914 !important;
+        }
+        
+        /* Asegurar que el video ocupe todo */
+        .plyr {
+            width: 100%;
+            height: 100%;
+        }
+      `}</style>
     </div>
   );
 };
