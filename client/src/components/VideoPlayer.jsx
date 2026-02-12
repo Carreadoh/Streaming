@@ -1,23 +1,21 @@
+// VideoPlayer.jsx (Versión Definitiva)
 import React from 'react';
+import ReactPlayer from 'react-player';
 
 const VideoPlayer = ({ src }) => {
   return (
-    <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      {/* Usamos la etiqueta estándar de HTML5 para probar */}
-      <video 
-        src={src} 
-        controls 
-        autoPlay 
-        playsInline
-        width="100%" 
-        height="100%"
-        style={{ maxHeight: '100vh' }}
-        onError={(e) => console.error("❌ Error nativo:", e.nativeEvent)}
-      >
-        Tu navegador no soporta este video.
-      </video>
+    <div className='player-wrapper' style={{ width: '100%', height: '100%', background: 'black' }}>
+      <ReactPlayer
+        url={src}
+        width='100%'
+        height='100%'
+        controls={true}
+        playing={true}
+        // Esta línea es clave: fuerza a usar el reproductor nativo del archivo
+        config={{ file: { forceVideo: true } }} 
+        onError={(e) => console.log("Error:", e)}
+      />
     </div>
   );
 };
-
 export default VideoPlayer;
