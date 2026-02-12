@@ -405,7 +405,9 @@ const Catalogo = () => {
                  backgroundColor: '#000', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid #333'
              }}>
                <button className="btn-back-search" onClick={() => handleCambiarTipo('todo')}
-                 style={{ background: 'none', border: 'none', color: 'white', fontSize: '28px', cursor: 'pointer', padding: '0 5px' }}>←</button>
+                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px' }}>
+                 <img src="/assets/icon-atras.svg" alt="Atrás" style={{ width: '28px', height: '28px', filter: 'brightness(0) invert(1)' }} />
+               </button>
                <div className="search-input-wrapper" style={{ position: 'relative', flex: 1 }}>
                  <input ref={inputBusquedaRef} type="text" placeholder="Buscar película, serie..." value={busqueda}
                    onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, plataformaActiva, e.target.value, 'buscador'); }}
