@@ -1,30 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 
 const VideoPlayer = ({ src }) => {
+  const [reproducir, setReproducir] = useState(false);
+
+  useEffect(() => {
+    console.log("🎬 Intentando cargar video:", src);
+    setReproducir(false); // Resetea si cambia la peli
+  }, [src]);
+
   return (
     <div className='player-wrapper' style={{ width: '100%', height: '100%', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <ReactPlayer
+        key={src} // Clave para forzar recarga si cambia URL
         url={src}
         className='react-player'
         width='100%'
         height='100%'
-        controls={true} // Controles nativos (Play, Pausa, Volumen, Pantalla completa)
-        playing={true}  // Autoplay al abrir
+        controls={true}
         
-        // Configuración optimizada para MP4
+        // TRUCO ANTIBLOQUEO:
+        // 1. No le damos play 'true' directo.
+        // 2. Esperamos a onReady.
+        playing={reproducir} 
+        
+        onReady={() => {
+            console.log("✅ Video listo para arrancar. Dando Play...");
+            setReproducir(true);
+        }}
+
+        onBuffer={() => console.log("⏳ Buffering (Cargando datos)...")}
+        
+        onStart={() => console.log("▶️ El video comenzó a reproducirse")}
+
+        onError={(e) => {
+            // Ignoramos el error de Abort (es ruido)
+            if (e && e.name === 'AbortError') return;
+            console.error("❌ ERROR CRÍTICO NO CARGA:", e);
+            console.error("❌ Revisa si el archivo existe en:", src);
+        }}
+
         config={{
           file: {
             attributes: {
-              controlsList: 'nodownload', // Opcional: Oculta el botón de descarga nativo
+              controlsList: 'nodownload',
               disablePictureInPicture: false,
-              preload: 'metadata' // Carga info rápida antes de bajar todo el video
+              crossOrigin: "anonymous" // Importante para algunos servidores
             }
           }
         }}
-
-        // Manejo de errores básico
-        onError={(e) => console.log("Error al reproducir:", e)}
       />
     </div>
   );
