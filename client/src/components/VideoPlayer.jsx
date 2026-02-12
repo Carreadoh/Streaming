@@ -1,31 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 
 const VideoPlayer = ({ src }) => {
+  // Estado para controlar la reproducción de forma segura
+  const [reproducir, setReproducir] = useState(false);
+
+  // Resetear estado si cambia el src
+  useEffect(() => {
+    setReproducir(false);
+  }, [src]);
+
   return (
     <div className='player-wrapper' style={{ width: '100%', height: '100%', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <ReactPlayer
+        key={src} // Forzar recreación si cambia el video
         url={src}
         className='react-player'
         width='100%'
         height='100%'
-        controls={true} // Muestra los controles nativos
-        playing={true}  // Autoplay
+        controls={true}
+        
+        // TRUCO: No ponemos 'true' directo. Esperamos a que esté listo.
+        playing={reproducir} 
+        
+        // Cuando el video ya cargó los metadatos y está listo, ahí damos play
+        onReady={() => setReproducir(true)}
+        
         config={{
           file: {
-            forceHLS: true, // Forzamos que detecte que es un m3u8
+            forceHLS: true,
             attributes: {
-              crossOrigin: "anonymous", // Ayuda con problemas de permisos (CORS)
+              crossOrigin: "anonymous",
               disablePictureInPicture: false,
+              controlsList: 'nodownload' // Opcional: Para que no descarguen fácil
             },
             hlsOptions: {
-              // Esto ayuda si el video tiene errores leves de codificación
               enableWorker: true,
               lowLatencyMode: true,
             }
           }
         }}
-        onError={(e) => console.log("Error del reproductor:", e)}
+        
+        // Filtramos el error AbortError para que no ensucie la consola
+        onError={(e) => {
+          if (e && e.name === 'AbortError') {
+            // Ignorar error de interrupción (usuario cerró rápido)
+            return;
+          }
+          console.log("Error del reproductor:", e);
+        }}
       />
     </div>
   );
