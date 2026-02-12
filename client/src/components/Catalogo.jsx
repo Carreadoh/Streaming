@@ -24,8 +24,8 @@ const PLATAFORMAS = [
   { id: 'Amazon', logo: 'https://play-lh.googleusercontent.com/mZ6pRo5-NnrO9GMwFNrK5kShF0UrN5UOARVAw64_5aFG6NgEHSlq-BX5I8TEXtTOk9s' },
   { id: 'HBO', logo: 'https://frontend-assets.clipsource.com/60dedc6376ad9/hbo-60def166a1502/2024/08/03/66ae50c0ca12f_thumbnail.png' },
   { id: 'Paramount', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/FWS265CNEJEQHF53MCJQ3QR2PA.jpg' },
-  { id: 'Crunchyroll', logo: 'https://m.media-amazon.com/images/I/41o03HyOYlL.png' },
-  { id: 'Estrenos', logo: 'https://us.123rf.com/450wm/octopus182/octopus1821711/octopus182171100077/90610951-plantilla-de-dise%C3%B1o-de-cartel-de-pel%C3%ADcula-de-cine-con-rollo-de-pel%C3%ADcula-y-tira-boleto-palomitas-de.jpg?ver=6' },
+  { id: 'Crunchyroll', logo: 'https://static.crunchyroll.com/cxweb/assets/img/favicons/favicon-32x32.png' },
+  { id: 'Estrenos', logo: 'https://cdn-icons-png.flaticon.com/512/3163/3163478.png' },
 ];
 
 const Catalogo = () => {
@@ -43,7 +43,6 @@ const Catalogo = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tipoContenido, setTipoContenido] = useState('todo'); 
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [animandoCierre, setAnimandoCierre] = useState(false);
   
   const [item, setItem] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
@@ -65,15 +64,6 @@ const Catalogo = () => {
     stateRef.current = { item, verPeliculaCompleta, menuAbierto };
   }, [item, verPeliculaCompleta, menuAbierto]);
 
-  const cerrarMenu = () => {
-    if (animandoCierre) return;
-    setAnimandoCierre(true);
-    setTimeout(() => {
-      setMenuAbierto(false);
-      setAnimandoCierre(false);
-    }, 300);
-  };
-
   // --- BOTÓN ATRÁS ---
   useEffect(() => {
     let backListener;
@@ -83,13 +73,7 @@ const Catalogo = () => {
           const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
           if (verPeliculaCompleta) setVerPeliculaCompleta(false);
           else if (item) setItem(null);
-          else if (menuAbierto) {
-            setAnimandoCierre(true);
-            setTimeout(() => {
-              setMenuAbierto(false);
-              setAnimandoCierre(false);
-            }, 300);
-          }
+          else if (menuAbierto) setMenuAbierto(false);
           else CapacitorApp.exitApp(); 
         });
       } catch (e) { console.log("Web mode"); }
@@ -103,13 +87,7 @@ const Catalogo = () => {
           e.preventDefault();
           if (verPeliculaCompleta) setVerPeliculaCompleta(false);
           else if (item) setItem(null);
-          else if (menuAbierto) {
-            setAnimandoCierre(true);
-            setTimeout(() => {
-              setMenuAbierto(false);
-              setAnimandoCierre(false);
-            }, 300);
-          }
+          else if (menuAbierto) setMenuAbierto(false);
         }
       }
     };
@@ -192,7 +170,9 @@ const Catalogo = () => {
         pSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'movie', uniqueKey: `m_${d.id}`}));
         sSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'serie', uniqueKey: `s_${d.id}`}));
         
+        // FILTRO ESTRICTO DE DUPLICADOS POR ID
         const unicos = combinados.filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
+        
         setTodosLosItems(unicos);
         filtrar(unicos, null, '', 'todo');
       } catch (e) { console.error(e); }
@@ -228,9 +208,13 @@ const Catalogo = () => {
       if (tipo === 'milista') { agrupado['Mi Lista'].push(p); return; }
       if (tipo === 'buscador') { agrupado['Resultados'].push(p); return; }
 
-      const generos = p.generos || ["General"];
-      generos.forEach(g => {
+      // AQUÍ ESTABA EL ERROR DE DUPLICADOS:
+      // Usamos Set para asegurar que no haya géneros repetidos en la misma película
+      const generosUnicos = [...new Set(p.generos || ["General"])];
+      
+      generosUnicos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
+        // Verificación extra de seguridad
         if (!agrupado[g].find(existing => existing.id === p.id)) {
             agrupado[g].push(p);
         }
@@ -248,19 +232,23 @@ const Catalogo = () => {
   const handleCerrarSesion = () => {
     const auth = getAuth();
     auth.signOut();
-    cerrarMenu();
+    setMenuAbierto(false);
   };
+
   const handleCambiarTipo = (tipo) => {
     setTipoContenido(tipo);
     if (tipo === 'buscador') {
       setPlataformaActiva(null);
       setBusqueda('');
       filtrar(todosLosItems, null, '', 'buscador');
+    } else if (tipo === 'cuenta') {
+       setMenuAbierto(false);
     } else {
       filtrar(todosLosItems, plataformaActiva, busqueda, tipo);
     }
-    cerrarMenu();
+    setMenuAbierto(false);
   };
+
   const obtenerUrlVideo = () => {
     if (!item) return '';
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
@@ -297,7 +285,7 @@ const Catalogo = () => {
   return (
     <div className="catalogo-wrapper" style={{ backgroundColor: '#000', minHeight: '100vh', color: 'white' }}>
       
-      {/* HEADER CORREGIDO: Soporte para Notch / Safe Area */}
+      {/* HEADER MÁS GRANDE */}
       {tipoContenido !== 'buscador' && (
         <header className="header-main" style={{ 
           backgroundColor: '#000', 
@@ -307,8 +295,9 @@ const Catalogo = () => {
           alignItems: 'center', 
           justifyContent: 'space-between', 
           padding: '0 15px',
-          paddingTop: 'env(safe-area-inset-top)', // ESTO BAJA EL HEADER DEL NOTCH
-          height: 'calc(80px + env(safe-area-inset-top))', // AJUSTA LA ALTURA TOTAL
+          paddingTop: 'env(safe-area-inset-top)', 
+          // AUMENTADO DE 80px A 90px
+          height: 'calc(90px + env(safe-area-inset-top))', 
           position: 'fixed',
           top: 0,
           left: 0,
@@ -316,15 +305,16 @@ const Catalogo = () => {
         }}>
           
           <div style={{ width: '40px' }}>
-            <button className="menu-btn" onClick={() => menuAbierto ? cerrarMenu() : setMenuAbierto(true)} style={{ color: 'white', fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>☰</button>
+            <button className="menu-btn" onClick={() => setMenuAbierto(!menuAbierto)} style={{ color: 'white', fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>☰</button>
           </div>
           
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img 
               src="/logo.png" 
-              alt="Neveus" 
+              alt="StreamGo" 
               onClick={() => handleCambiarTipo('todo')} 
-              style={{ height: '65px', maxWidth: '100%', objectFit: 'contain', cursor: 'pointer' }} 
+              // AUMENTADO A 80px
+              style={{ height: '80px', maxWidth: '100%', objectFit: 'contain', cursor: 'pointer' }} 
             />
           </div>
           
@@ -336,18 +326,15 @@ const Catalogo = () => {
           
           {menuAbierto && (
             <>
-              <div className={`menu-overlay ${animandoCierre ? 'cerrando' : ''}`} onClick={cerrarMenu}></div>
-              <div className={`menu-lateral ${animandoCierre ? 'cerrando' : ''}`} style={{ backgroundColor: '#000', paddingTop: 'env(safe-area-inset-top)' }}>
+              <div className="menu-overlay" onClick={() => setMenuAbierto(false)}></div>
+              <div className="menu-lateral" style={{ backgroundColor: '#000', paddingTop: 'env(safe-area-inset-top)' }}>
                 <div className="menu-header" style={{ borderBottom: '1px solid #222' }}>
                   <h2>Menú</h2>
-                  <button className="btn-cerrar-menu" onClick={cerrarMenu}>✕</button>
+                  <button className="btn-cerrar-menu" onClick={() => setMenuAbierto(false)}>✕</button>
                 </div>
                 <nav className="menu-nav">
                   <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>
                     <img src="/assets/icon-inicio.svg" alt="" className="menu-icon-img" /> Inicio
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'buscador' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('buscador')}>
-                    <img src="/assets/icon-buscador.svg" alt="" className="menu-icon-img" /> Buscador
                   </button>
                   <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>
                     <img src="/assets/icon-peliculas.svg" alt="" className="menu-icon-img" /> Películas
@@ -374,8 +361,9 @@ const Catalogo = () => {
         </header>
       )}
 
-      {/* CUERPO PRINCIPAL - AJUSTE DE PADDING PARA NO QUEDAR BAJO EL HEADER BAJADO */}
-      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(100px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
+      {/* CUERPO PRINCIPAL */}
+      {/* PADDING AUMENTADO A 110px PARA COMPENSAR EL HEADER NUEVO */}
+      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(110px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
         
         {/* PANTALLA CUENTA */}
         {tipoContenido === 'cuenta' && (
@@ -407,19 +395,17 @@ const Catalogo = () => {
           </div>
         )}
 
-        {/* BUSCADOR - TAMBIÉN SOPORTA NOTCH */}
+        {/* BUSCADOR */}
         {tipoContenido === 'buscador' && (
-          <div className="search-screen" style={{ width: '100%', minHeight: '100vh', background: '#000', zIndex: 999, position: 'relative', paddingTop: 0 }}>
+          <div className="search-screen" style={{ width: '100%', minHeight: '100vh', background: '#000', zIndex: 999, position: 'relative' }}>
              <div className="search-header" style={{ 
-                 padding: '10px 20px 10px 20px', 
-                 paddingTop: 'env(safe-area-inset-top)', 
+                 padding: '20px 20px 30px 20px', 
+                 paddingTop: 'calc(20px + env(safe-area-inset-top))', 
                  display: 'flex', alignItems: 'center', gap: '15px',
                  backgroundColor: '#000', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid #333'
              }}>
                <button className="btn-back-search" onClick={() => handleCambiarTipo('todo')}
-                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center' }}>
-                   <img src="/assets/icon-atras.svg" alt="Volver" style={{ width: '28px', height: '28px', filter: 'brightness(0) invert(1)' }} />
-               </button>
+                 style={{ background: 'none', border: 'none', color: 'white', fontSize: '28px', cursor: 'pointer', padding: '0 5px' }}>←</button>
                <div className="search-input-wrapper" style={{ position: 'relative', flex: 1 }}>
                  <input ref={inputBusquedaRef} type="text" placeholder="Buscar película, serie..." value={busqueda}
                    onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, plataformaActiva, e.target.value, 'buscador'); }}
@@ -445,16 +431,32 @@ const Catalogo = () => {
         {/* HOME / FILAS */}
         {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && (
            <>
-              <div className="filtros-container" style={{ marginBottom: '20px' }}>
-                {PLATAFORMAS.map(p => (
-                  <div key={p.id} className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
-                    onClick={() => { const nueva = plataformaActiva === p.id ? null : p.id; setPlataformaActiva(nueva); filtrar(todosLosItems, nueva, busqueda, tipoContenido); }}
-                    tabIndex="0"
-                  >
-                    <img src={p.logo} alt={p.id} />
-                  </div>
-                ))}
-              </div>
+              {/* PLATAFORMAS (Se oculta en Favoritos/MiLista) */}
+              {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
+                <div className="filtros-container" style={{ marginBottom: '20px' }}>
+                  {PLATAFORMAS.map(p => (
+                    <div key={p.id} className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
+                      onClick={() => { const nueva = plataformaActiva === p.id ? null : p.id; setPlataformaActiva(nueva); filtrar(todosLosItems, nueva, busqueda, tipoContenido); }}
+                      tabIndex="0"
+                    >
+                      <img src={p.logo} alt={p.id} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TÍTULOS GRANDES PARA FAVORITOS Y MI LISTA */}
+              {tipoContenido === 'favoritos' && (
+                <h1 style={{ padding: '0 20px', fontSize: '30px', fontWeight: 'bold', marginBottom: '10px', color: 'white' }}>
+                  Mis Favoritos
+                </h1>
+              )}
+              {tipoContenido === 'milista' && (
+                <h1 style={{ padding: '0 20px', fontSize: '30px', fontWeight: 'bold', marginBottom: '10px', color: 'white' }}>
+                  Mi Lista
+                </h1>
+              )}
+
               {Object.keys(itemsFiltrados).sort().map(g => (
                 <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={(p) => setItem(p)} />
               ))}
