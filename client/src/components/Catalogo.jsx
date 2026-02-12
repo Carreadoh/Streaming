@@ -251,7 +251,7 @@ const Catalogo = () => {
 
   const obtenerUrlVideo = () => {
     if (!item) return '';
-    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
+    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
   };
 
   const toggleFavorito = (id) => {
