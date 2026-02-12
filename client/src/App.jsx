@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// CAMBIO CLAVE: Usamos HashRouter en lugar de BrowserRouter
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Catalogo from './components/Catalogo';
 import AdminPanel from './components/AdminPanel';
 import './App.css';

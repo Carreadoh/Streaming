@@ -481,7 +481,7 @@ body {
 /* Reproductor Full */
 .player-overlay { position: fixed; inset: 0; z-index: 2000; background: black; }
 .btn-volver-player {
-  position: absolute; top: calc(20px + env(safe-area-inset-top)); left: 20px; z-index: 2001;
+  position: absolute; top: calc(20px + env(safe-area-inset-top)); left: 20px; z-index: 100000;
   background: rgba(0,0,0,0.5); color: white; border: 1px solid white;
   padding: 8px 15px; border-radius: 5px; cursor: pointer;
 }

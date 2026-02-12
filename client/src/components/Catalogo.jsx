@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore'; // Solo dejamos lo necesario para info de usuario
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { App as CapacitorApp } from '@capacitor/app'; 
 import { ScreenOrientation } from '@capacitor/screen-orientation'; 
@@ -8,10 +8,8 @@ import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
 import '../App.css'; 
 
-const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
-// Función segura fuera del componente
 const normalizarTexto = (texto) => {
   return texto 
     ? String(texto).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
@@ -38,7 +36,6 @@ const Catalogo = () => {
   
   const [todosLosItems, setTodosLosItems] = useState([]);
   const [itemsFiltrados, setItemsFiltrados] = useState({});
-  const [plataformasSeleccionadas, setPlataformasSeleccionadas] = useState([]);
   const [plataformaActiva, setPlataformaActiva] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const [tipoContenido, setTipoContenido] = useState('todo'); 
@@ -55,7 +52,7 @@ const Catalogo = () => {
   const getImagenUrl = (path) => {
     if (!path) return 'https://via.placeholder.com/500x281?text=No+Image'; 
     if (path.startsWith('http')) return path; 
-    return `https://image.tmdb.org/t/p/original${path}`; 
+    return path; // El script ahora nos da la URL completa de TMDB
   };
 
   const stateRef = useRef({ item, verPeliculaCompleta, menuAbierto });
@@ -98,19 +95,6 @@ const Catalogo = () => {
     };
   }, []);
 
-  // --- FOCO ---
-  useEffect(() => {
-    if (item && !verPeliculaCompleta && btnReproducirRef.current) {
-      setTimeout(() => btnReproducirRef.current.focus(), 100);
-    }
-  }, [item, verPeliculaCompleta]);
-
-  useEffect(() => {
-    if (tipoContenido === 'buscador' && inputBusquedaRef.current) {
-      setTimeout(() => inputBusquedaRef.current.focus(), 100);
-    }
-  }, [tipoContenido]);
-
   // --- ROTACIÓN ---
   useEffect(() => {
     const rotarPantalla = async () => {
@@ -125,7 +109,7 @@ const Catalogo = () => {
     rotarPantalla();
   }, [verPeliculaCompleta]);
 
-  // --- AUTH & INFO ---
+  // --- AUTH & INFO (Firebase se queda para usuarios) ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -159,23 +143,29 @@ const Catalogo = () => {
     }
   };
 
-  // --- CARGA ---
+  // --- CARGA DESDE EL SERVIDOR (NUEVA LÓGICA) ---
   useEffect(() => {
     if (!usuario) return;
     const cargar = async () => {
       try {
-        const pSnap = await getDocs(collection(db, "peliculas"));
-        const sSnap = await getDocs(collection(db, "series"));
-        const combinados = [];
-        pSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'movie', uniqueKey: `m_${d.id}`}));
-        sSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'serie', uniqueKey: `s_${d.id}`}));
+        // Fetch al JSON generado por tu script PHP
+        const response = await fetch(`${URL_SERVIDOR}/data.php`);
+        const data = await response.json();
         
-        // FILTRO ESTRICTO DE DUPLICADOS POR ID
-        const unicos = combinados.filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
-        
-        setTodosLosItems(unicos);
-        filtrar(unicos, null, '', 'todo');
-      } catch (e) { console.error(e); }
+        // El script ya nos da los objetos limpios
+        const items = data.map(p => ({
+            ...p,
+            uniqueKey: `p_${p.id}`,
+            // Si el script no envía tipo, asumimos movie por defecto
+            tipo: p.tipo || 'movie',
+            imagen_poster: p.poster // El script usa 'poster'
+        }));
+
+        setTodosLosItems(items);
+        filtrar(items, null, '', 'todo');
+      } catch (e) { 
+          console.error("Error cargando catálogo del server", e); 
+      }
     };
     cargar();
   }, [usuario]);
@@ -208,13 +198,10 @@ const Catalogo = () => {
       if (tipo === 'milista') { agrupado['Mi Lista'].push(p); return; }
       if (tipo === 'buscador') { agrupado['Resultados'].push(p); return; }
 
-      // AQUÍ ESTABA EL ERROR DE DUPLICADOS:
-      // Usamos Set para asegurar que no haya géneros repetidos en la misma película
       const generosUnicos = [...new Set(p.generos || ["General"])];
       
       generosUnicos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
-        // Verificación extra de seguridad
         if (!agrupado[g].find(existing => existing.id === p.id)) {
             agrupado[g].push(p);
         }
@@ -242,16 +229,17 @@ const Catalogo = () => {
       setBusqueda('');
       filtrar(todosLosItems, null, '', 'buscador');
     } else if (tipo === 'cuenta') {
-       setMenuAbierto(false);
+        setMenuAbierto(false);
     } else {
       filtrar(todosLosItems, plataformaActiva, busqueda, tipo);
     }
     setMenuAbierto(false);
   };
 
+  // --- URL DE VIDEO DIRECTA DEL JSON ---
   const obtenerUrlVideo = () => {
     if (!item) return '';
-    return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}.mp4`;
+    return item.video_url; // El script ya nos da la URL completa
   };
 
   const toggleFavorito = (id) => {
@@ -285,41 +273,23 @@ const Catalogo = () => {
   return (
     <div className="catalogo-wrapper" style={{ backgroundColor: '#000', minHeight: '100vh', color: 'white' }}>
       
-      {/* HEADER MÁS GRANDE */}
+      {/* HEADER */}
       {tipoContenido !== 'buscador' && (
         <header className="header-main" style={{ 
-          backgroundColor: '#000', 
-          borderBottom: '1px solid #111', 
-          zIndex: 1000, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
-          padding: '0 15px',
-          paddingTop: 'env(safe-area-inset-top)', 
-          // AUMENTADO DE 80px A 90px
+          backgroundColor: '#000', borderBottom: '1px solid #111', zIndex: 1000, 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          padding: '0 15px', paddingTop: 'env(safe-area-inset-top)', 
           height: 'calc(90px + env(safe-area-inset-top))', 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0
+          position: 'fixed', top: 0, left: 0, right: 0
         }}>
-          
           <div style={{ width: '40px' }}>
-            <button className="menu-btn" onClick={() => setMenuAbierto(!menuAbierto)} style={{ color: 'white', fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>☰</button>
+            <button className="menu-btn" onClick={() => setMenuAbierto(!menuAbierto)} style={{ color: 'white', fontSize: '24px', background: 'none', border: 'none' }}>☰</button>
           </div>
-          
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img 
-              src="/logo.png" 
-              alt="StreamGo" 
-              onClick={() => handleCambiarTipo('todo')} 
-              // AUMENTADO A 80px
-              style={{ height: '80px', maxWidth: '100%', objectFit: 'contain', cursor: 'pointer' }} 
-            />
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="StreamGo" onClick={() => handleCambiarTipo('todo')} style={{ height: '80px', cursor: 'pointer' }} />
           </div>
-          
           <div style={{ width: '40px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="search-btn-header" onClick={() => handleCambiarTipo('buscador')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <button className="search-btn-header" onClick={() => handleCambiarTipo('buscador')} style={{ background: 'none', border: 'none' }}>
               <img src="/assets/icon-buscador.svg" alt="Buscar" style={{ width: '24px', height: '24px' }} />
             </button>
           </div>
@@ -327,33 +297,19 @@ const Catalogo = () => {
           {menuAbierto && (
             <>
               <div className="menu-overlay" onClick={() => setMenuAbierto(false)}></div>
-              <div className="menu-lateral" style={{ backgroundColor: '#000', paddingTop: 'env(safe-area-inset-top)' }}>
-                <div className="menu-header" style={{ borderBottom: '1px solid #222' }}>
+              <div className="menu-lateral" style={{ backgroundColor: '#000' }}>
+                <div className="menu-header">
                   <h2>Menú</h2>
                   <button className="btn-cerrar-menu" onClick={() => setMenuAbierto(false)}>✕</button>
                 </div>
                 <nav className="menu-nav">
-                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>
-                    <img src="/assets/icon-inicio.svg" alt="" className="menu-icon-img" /> Inicio
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>
-                    <img src="/assets/icon-peliculas.svg" alt="" className="menu-icon-img" /> Películas
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>
-                    <img src="/assets/icon-series.svg" alt="" className="menu-icon-img" /> Series
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>
-                    <img src="/assets/icon-favoritos.svg" alt="" className="menu-icon-img" /> Mis Favoritos
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>
-                    <img src="/assets/icon-milista.svg" alt="" className="menu-icon-img" /> Mi Lista
-                  </button>
-                  <button className={`menu-item-btn ${tipoContenido === 'cuenta' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('cuenta')}>
-                    <img src="/assets/icon-cuenta.svg" alt="" className="menu-icon-img" /> Cuenta
-                  </button>
-                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>
-                    <img src="/assets/icon-cerrar.svg" alt="" className="menu-icon-img" /> Cerrar Sesión
-                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>Inicio</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>Películas</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>Series</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>Favoritos</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>Mi Lista</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'cuenta' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('cuenta')}>Cuenta</button>
+                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>Cerrar Sesión</button>
                 </nav>
               </div>
             </>
@@ -361,144 +317,82 @@ const Catalogo = () => {
         </header>
       )}
 
-      {/* CUERPO PRINCIPAL */}
-      {/* PADDING AUMENTADO A 110px PARA COMPENSAR EL HEADER NUEVO */}
-      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(110px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
+      {/* CONTENIDO */}
+      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : '110px', backgroundColor: '#000' }}>
         
-        {/* PANTALLA CUENTA */}
         {tipoContenido === 'cuenta' && (
-          <div className="cuenta-screen" style={{ 
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-              minHeight: '60vh', textAlign: 'center', padding: '20px'
-          }}>
-              <div style={{ 
-                  width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#222', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px',
-                  border: '2px solid #333'
-              }}>
-                  <img src="/assets/icon-cuenta.svg" alt="Usuario" style={{ width: '50px', height: '50px', filter: 'invert(1)' }} />
-              </div>
-              <h2 style={{ marginBottom: '10px', fontSize: '24px' }}>Mi Cuenta</h2>
-              <p style={{ color: '#aaa', marginBottom: '30px', fontSize: '16px' }}>{usuario?.email}</p>
-              
-              <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '10px', width: '100%', maxWidth: '300px', border: '1px solid #222' }}>
-                  <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Estado de la suscripción</p>
-                  <p style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '18px', marginBottom: '10px' }}>ACTIVO</p>
-                  
-                  {infoUsuario?.fecha_vencimiento && (
-                    <div style={{ borderTop: '1px solid #333', marginTop: '10px', paddingTop: '10px' }}>
-                        <p style={{ color: '#666', fontSize: '12px' }}>Vence el:</p>
-                        <p style={{ color: '#fff', fontSize: '15px' }}>{new Date(infoUsuario.fecha_vencimiento).toLocaleDateString()}</p>
-                    </div>
-                  )}
+          <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
+              <h2>Mi Cuenta</h2>
+              <p>{usuario?.email}</p>
+              <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
+                  <p style={{ color: '#4ade80' }}>SUSCRIPCIÓN ACTIVA</p>
+                  {infoUsuario?.fecha_vencimiento && <p>Vence: {new Date(infoUsuario.fecha_vencimiento).toLocaleDateString()}</p>}
               </div>
           </div>
         )}
 
-        {/* BUSCADOR */}
         {tipoContenido === 'buscador' && (
-          <div className="search-screen" style={{ width: '100%', minHeight: '100vh', background: '#000', zIndex: 999, position: 'relative' }}>
-             <div className="search-header" style={{ 
-                 padding: '20px 20px 30px 20px', 
-                 paddingTop: 'calc(20px + env(safe-area-inset-top))', 
-                 display: 'flex', alignItems: 'center', gap: '15px',
-                 backgroundColor: '#000', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid #333'
-             }}>
-               <button className="btn-back-search" onClick={() => handleCambiarTipo('todo')}
-                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 5px' }}>
-                 <img src="/assets/icon-atras.svg" alt="Atrás" style={{ width: '28px', height: '28px', filter: 'brightness(0) invert(1)' }} />
+          <div className="search-screen">
+             <div className="search-header" style={{ display: 'flex', padding: '20px', gap: '15px' }}>
+               <button onClick={() => handleCambiarTipo('todo')} style={{ background: 'none', border: 'none' }}>
+                 <img src="/assets/icon-atras.svg" alt="Atrás" style={{ width: '28px', filter: 'invert(1)' }} />
                </button>
-               <div className="search-input-wrapper" style={{ position: 'relative', flex: 1 }}>
-                 <input ref={inputBusquedaRef} type="text" placeholder="Buscar película, serie..." value={busqueda}
-                   onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, plataformaActiva, e.target.value, 'buscador'); }}
-                   style={{ width: '100%', padding: '12px 45px 12px 20px', borderRadius: '8px', border: '1px solid #333', backgroundColor: '#000', color: 'white', fontSize: '16px', outline: 'none' }}
-                 />
-                 {busqueda && (
-                   <button className="btn-clear-search" onClick={() => { setBusqueda(''); filtrar(todosLosItems, null, '', 'buscador'); inputBusquedaRef.current.focus(); }}
-                     style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#fff', fontSize: '16px', cursor: 'pointer' }}>✕</button>
-                 )}
-               </div>
+               <input ref={inputBusquedaRef} type="text" placeholder="Buscar..." value={busqueda}
+                 onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, null, e.target.value, 'buscador'); }}
+                 style={{ flex: 1, padding: '12px', borderRadius: '8px', background: '#222', color: 'white', border: 'none' }}
+               />
              </div>
-             <div className="search-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px', padding: '20px', marginTop: '20px' }}>
+             <div className="search-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '15px', padding: '20px' }}>
                 {itemsFiltrados['Resultados']?.map(p => (
-                    <div key={p.uniqueKey || p.id} onClick={() => setItem(p)} style={{cursor: 'pointer'}}>
-                       <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} style={{width: '100%', borderRadius: '6px', aspectRatio: '2/3', objectFit: 'cover'}}/>
-                       <p style={{marginTop: '6px', fontSize: '12px', color: '#ddd', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{p.titulo}</p>
+                    <div key={p.uniqueKey} onClick={() => setItem(p)}>
+                       <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} style={{width: '100%', borderRadius: '8px'}}/>
                     </div>
                 ))}
              </div>
           </div>
         )}
 
-        {/* HOME / FILAS */}
         {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && (
-           <>
-              {/* PLATAFORMAS (Se oculta en Favoritos/MiLista) */}
+            <>
               {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
-                <div className="filtros-container" style={{ marginBottom: '20px' }}>
+                <div className="filtros-container">
                   {PLATAFORMAS.map(p => (
                     <div key={p.id} className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
-                      onClick={() => { const nueva = plataformaActiva === p.id ? null : p.id; setPlataformaActiva(nueva); filtrar(todosLosItems, nueva, busqueda, tipoContenido); }}
-                      tabIndex="0"
-                    >
+                      onClick={() => { const nueva = plataformaActiva === p.id ? null : p.id; setPlataformaActiva(nueva); filtrar(todosLosItems, nueva, busqueda, tipoContenido); }}>
                       <img src={p.logo} alt={p.id} />
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* TÍTULOS GRANDES PARA FAVORITOS Y MI LISTA */}
-              {tipoContenido === 'favoritos' && (
-                <h1 style={{ padding: '0 20px', fontSize: '30px', fontWeight: 'bold', marginBottom: '10px', color: 'white' }}>
-                  Mis Favoritos
-                </h1>
-              )}
-              {tipoContenido === 'milista' && (
-                <h1 style={{ padding: '0 20px', fontSize: '30px', fontWeight: 'bold', marginBottom: '10px', color: 'white' }}>
-                  Mi Lista
-                </h1>
-              )}
-
               {Object.keys(itemsFiltrados).sort().map(g => (
                 <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={(p) => setItem(p)} />
               ))}
-           </>
+            </>
         )}
       </div>
 
       {/* PLAYER */}
       {verPeliculaCompleta && item && (
-        <div className="player-overlay" style={{ background: '#000' }}>
-          <button className="btn-volver-player" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
-          <VideoPlayer src={obtenerUrlVideo()} />
+        <div className="player-overlay">
+          <VideoPlayer src={obtenerUrlVideo()} onClose={() => setVerPeliculaCompleta(false)} />
         </div>
       )}
 
-      {/* MODAL */}
+      {/* MODAL DETALLE */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ backgroundColor: '#000', border: '1px solid #222', paddingTop: 'env(safe-area-inset-top)' }}>
-            <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_poster)})` }}>
               <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
             </div>
             <div className="modal-info">
               <h2>{item.titulo}</h2>
-              <div className="modal-meta">
-                {item.fecha_estreno && <span className="meta-tag">{item.fecha_estreno.split('-')[0]}</span>}
-                {item.duracion && <span>{item.duracion} min</span>}
-              </div>
-              <p className="modal-desc" style={{ color: '#ccc' }}>{item.descripcion || item.overview}</p>
+              <p>{item.sinopsis || item.descripcion}</p>
               <div className="modal-actions">
-                <button className={`action-btn ${favoritos.includes(item.id) ? 'activo' : ''}`} onClick={() => toggleFavorito(item.id)}>
-                  <img src="/assets/icon-favoritos.svg" alt="Favorito" />
-                  <span>Favorito</span>
-                </button>
-                <button className={`action-btn ${miLista.includes(item.id) ? 'activo' : ''}`} onClick={() => toggleMiLista(item.id)}>
-                  <img src="/assets/icon-milista.svg" alt="Mi Lista" />
-                  <span>Mi Lista</span>
-                </button>
+                <button className="action-btn" onClick={() => toggleFavorito(item.id)}>Favorito</button>
+                <button className="action-btn" onClick={() => toggleMiLista(item.id)}>Mi Lista</button>
               </div>
-              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)} tabIndex="0">▶ REPRODUCIR</button>
+              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)}>▶ REPRODUCIR</button>
             </div>
           </div>
         </div>
