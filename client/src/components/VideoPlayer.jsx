@@ -1,13 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import videojs from 'video.js';
-import 'video.js/dist/video-js.css';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { StatusBar } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
 const VideoPlayer = ({ src }) => {
   const videoRef = useRef(null);
-  const playerRef = useRef(null);
 
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
@@ -17,32 +14,26 @@ const VideoPlayer = ({ src }) => {
         try {
           await ScreenOrientation.lock({ orientation: 'landscape' });
           await StatusBar.hide();
-        } catch (error) {
-          console.warn("Error nativo:", error);
-        }
+        } catch (e) {}
       }
     };
 
     setupNativeView();
 
-    if (!playerRef.current) {
-      const videoElement = document.createElement("video-js");
-      videoElement.classList.add('vjs-big-play-centered');
-      videoRef.current.appendChild(videoElement);
+    // --- FORZAR REPRODUCCIÓN ---
+    if (videoRef.current) {
+      const video = videoRef.current;
 
-      playerRef.current = videojs(videoElement, {
-        autoplay: true,
-        controls: true,
-        responsive: true,
-        fluid: false, // CAMBIO: Ponemos false para manejar el tamaño nosotros
-        muted: false, // CAMBIO: Aseguramos que no esté silenciado
-        sources: [{ src: src, type: 'video/mp4' }]
-      }, () => {
-        // Truco para el sonido: Algunos navegadores necesitan que el usuario interactúe
-        // Intentamos quitar el mute apenas cargue
-        playerRef.current.muted(false);
-      });
-
+      // Intentar forzar el inicio apenas cargue suficiente buffer
+      video.oncanplay = () => {
+        video.play().catch(err => {
+          console.log("Autoplay bloqueado, intentando con mute...");
+          video.muted = true;
+          video.play();
+          // Una vez que arranca, intentamos quitar el mute
+          setTimeout(() => { video.muted = false; }, 100);
+        });
+      };
     }
 
     return () => {
@@ -55,30 +46,46 @@ const VideoPlayer = ({ src }) => {
         }
       };
       resetNativeView();
-
-      if (playerRef.current) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
     };
   }, [src]);
 
   return (
     <div 
       style={{ 
-        position: 'fixed', // CAMBIO: Flota sobre toda la app
-        top: 0, 
-        left: 0, 
-        width: '100vw', 
-        height: '100vh', 
-        zIndex: 9999, // CAMBIO: Por encima de cualquier menú
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999,
         backgroundColor: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
       }}
     >
-      <div ref={videoRef} style={{ width: '100%', height: '100%' }} />
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        playsInline // CRÍTICO: Evita que iOS/Android lo abran en su propio reproductor
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          objectFit: 'contain' // Mantiene la relación de aspecto sin zoom
+        }}
+        // Quitamos controles nativos y ponemos los que vos quieras o ninguno
+        controls={true} 
+        // Desactivamos el botón de pantalla completa nativo (ya estamos en pantalla completa)
+        controlsList="nofullscreen nodownload"
+      />
+      
+      {/* Estilo para ocultar el botón de pantalla completa en Chrome/Android */}
+      <style>{`
+        video::-webkit-media-controls-fullscreen-button {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };
