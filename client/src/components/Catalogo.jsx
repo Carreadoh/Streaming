@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { App as CapacitorApp } from '@capacitor/app'; 
 import { ScreenOrientation } from '@capacitor/screen-orientation'; 
@@ -11,8 +11,7 @@ import '../App.css';
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
-// --- ARREGLO DEL BUSCADOR ---
-// Definida fuera para que no de error
+// Función segura fuera del componente
 const normalizarTexto = (texto) => {
   return texto 
     ? String(texto).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
@@ -25,12 +24,13 @@ const PLATAFORMAS = [
   { id: 'Amazon', logo: 'https://play-lh.googleusercontent.com/mZ6pRo5-NnrO9GMwFNrK5kShF0UrN5UOARVAw64_5aFG6NgEHSlq-BX5I8TEXtTOk9s' },
   { id: 'HBO', logo: 'https://frontend-assets.clipsource.com/60dedc6376ad9/hbo-60def166a1502/2024/08/03/66ae50c0ca12f_thumbnail.png' },
   { id: 'Paramount', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/FWS265CNEJEQHF53MCJQ3QR2PA.jpg' },
-  { id: 'Crunchyroll', logo: 'https://static.crunchyroll.com/cxweb/assets/img/favicons/favicon-32x32.png' },
-  { id: 'Estrenos', logo: 'https://cdn-icons-png.flaticon.com/512/3163/3163478.png' },
+  { id: 'Crunchyroll', logo: 'https://m.media-amazon.com/images/I/41o03HyOYlL.png' },
+  { id: 'Estrenos', logo: 'https://us.123rf.com/450wm/octopus182/octopus1821711/octopus182171100077/90610951-plantilla-de-dise%C3%B1o-de-cartel-de-pel%C3%ADcula-de-cine-con-rollo-de-pel%C3%ADcula-y-tira-boleto-palomitas-de.jpg?ver=6' },
 ];
 
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
+  const [infoUsuario, setInfoUsuario] = useState(null); 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [email, setEmail] = useState('admin@neveus.lat');
   const [password, setPassword] = useState('Fm5Lcj%Va%kJwr');
@@ -43,11 +43,12 @@ const Catalogo = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tipoContenido, setTipoContenido] = useState('todo'); 
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [animandoCierre, setAnimandoCierre] = useState(false);
   
   const [item, setItem] = useState(null); 
   const [verPeliculaCompleta, setVerPeliculaCompleta] = useState(false);
   const btnReproducirRef = useRef(null); 
-  const inputBusquedaRef = useRef(null); // Ref para el input del buscador
+  const inputBusquedaRef = useRef(null);
 
   const [favoritos, setFavoritos] = useState(() => JSON.parse(localStorage.getItem('favoritos')) || []);
   const [miLista, setMiLista] = useState(() => JSON.parse(localStorage.getItem('miLista')) || []);
@@ -64,23 +65,32 @@ const Catalogo = () => {
     stateRef.current = { item, verPeliculaCompleta, menuAbierto };
   }, [item, verPeliculaCompleta, menuAbierto]);
 
-  // --- LISTENER BOTÓN ATRÁS ---
+  const cerrarMenu = () => {
+    if (animandoCierre) return;
+    setAnimandoCierre(true);
+    setTimeout(() => {
+      setMenuAbierto(false);
+      setAnimandoCierre(false);
+    }, 300);
+  };
+
+  // --- BOTÓN ATRÁS ---
   useEffect(() => {
     let backListener;
     const setupAppListener = async () => {
       try {
         backListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
           const { item, verPeliculaCompleta, menuAbierto } = stateRef.current;
-          
-          if (verPeliculaCompleta) {
-            setVerPeliculaCompleta(false);
-          } else if (item) {
-            setItem(null);
-          } else if (menuAbierto) {
-            setMenuAbierto(false);
-          } else {
-            CapacitorApp.exitApp(); 
+          if (verPeliculaCompleta) setVerPeliculaCompleta(false);
+          else if (item) setItem(null);
+          else if (menuAbierto) {
+            setAnimandoCierre(true);
+            setTimeout(() => {
+              setMenuAbierto(false);
+              setAnimandoCierre(false);
+            }, 300);
           }
+          else CapacitorApp.exitApp(); 
         });
       } catch (e) { console.log("Web mode"); }
     };
@@ -93,33 +103,37 @@ const Catalogo = () => {
           e.preventDefault();
           if (verPeliculaCompleta) setVerPeliculaCompleta(false);
           else if (item) setItem(null);
-          else if (menuAbierto) setMenuAbierto(false);
+          else if (menuAbierto) {
+            setAnimandoCierre(true);
+            setTimeout(() => {
+              setMenuAbierto(false);
+              setAnimandoCierre(false);
+            }, 300);
+          }
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    
     return () => {
       if (backListener) backListener.remove();
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  // --- FOCO EN TV ---
+  // --- FOCO ---
   useEffect(() => {
     if (item && !verPeliculaCompleta && btnReproducirRef.current) {
       setTimeout(() => btnReproducirRef.current.focus(), 100);
     }
   }, [item, verPeliculaCompleta]);
 
-  // --- FOCO EN BUSCADOR ---
   useEffect(() => {
     if (tipoContenido === 'buscador' && inputBusquedaRef.current) {
       setTimeout(() => inputBusquedaRef.current.focus(), 100);
     }
   }, [tipoContenido]);
 
-  // --- ROTACIÓN AUTOMÁTICA ---
+  // --- ROTACIÓN ---
   useEffect(() => {
     const rotarPantalla = async () => {
       try {
@@ -133,13 +147,23 @@ const Catalogo = () => {
     rotarPantalla();
   }, [verPeliculaCompleta]);
 
-  // --- AUTH ---
+  // --- AUTH & INFO ---
   useEffect(() => {
     const auth = getAuth();
-    onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUsuario(user);
+      if (user) {
+        try {
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setInfoUsuario(docSnap.data());
+            }
+        } catch (e) { console.error("Error info usuario", e); }
+      }
       setLoadingAuth(false);
     });
+    return () => unsubscribe();
   }, []);
 
   const handleLogin = async (e) => {
@@ -157,22 +181,18 @@ const Catalogo = () => {
     }
   };
 
-  // --- CARGA DE DATOS ---
+  // --- CARGA ---
   useEffect(() => {
     if (!usuario) return;
     const cargar = async () => {
       try {
         const pSnap = await getDocs(collection(db, "peliculas"));
         const sSnap = await getDocs(collection(db, "series"));
-        
         const combinados = [];
-        // UniqueKey para evitar duplicados en listas planas
         pSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'movie', uniqueKey: `m_${d.id}`}));
         sSnap.forEach(d => combinados.push({id: d.id, ...d.data(), tipo: 'serie', uniqueKey: `s_${d.id}`}));
-
-        // Filtro de IDs duplicados
+        
         const unicos = combinados.filter((v,i,a)=>a.findIndex(t=>(t.id===v.id))===i);
-
         setTodosLosItems(unicos);
         filtrar(unicos, null, '', 'todo');
       } catch (e) { console.error(e); }
@@ -180,13 +200,12 @@ const Catalogo = () => {
     cargar();
   }, [usuario]);
 
-  // --- LÓGICA DE FILTRADO ---
+  // --- FILTRO ---
   const filtrar = (items, plat, busq, tipo) => {
     const agrupado = {};
     const busquedaNorm = normalizarTexto(busq);
     const platNorm = plat ? normalizarTexto(plat) : null;
     
-    // Inicializar secciones especiales
     if (tipo === 'favoritos') agrupado['Favoritos'] = [];
     if (tipo === 'milista') agrupado['Mi Lista'] = [];
     if (tipo === 'buscador') agrupado['Resultados'] = [];
@@ -194,24 +213,21 @@ const Catalogo = () => {
     items.forEach(p => {
       if (tipo === 'favoritos' && !favoritos.includes(p.id)) return;
       if (tipo === 'milista' && !miLista.includes(p.id)) return;
+      if (tipo === 'cuenta') return;
 
       if (tipo === 'peliculas' && p.tipo !== 'movie') return;
       if (tipo === 'series' && p.tipo !== 'serie') return;
       
-      // Filtro Plataforma
       const pPlat = p.plataforma_origen ? normalizarTexto(p.plataforma_origen) : '';
       if (platNorm && !pPlat.includes(platNorm)) return;
       
-      // Filtro Buscador
       const pTitulo = p.titulo ? normalizarTexto(p.titulo) : '';
       if (busquedaNorm && !pTitulo.includes(busquedaNorm)) return;
 
-      // Asignar a secciones planas
       if (tipo === 'favoritos') { agrupado['Favoritos'].push(p); return; }
       if (tipo === 'milista') { agrupado['Mi Lista'].push(p); return; }
       if (tipo === 'buscador') { agrupado['Resultados'].push(p); return; }
 
-      // Asignar a filas por género
       const generos = p.generos || ["General"];
       generos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
@@ -232,9 +248,8 @@ const Catalogo = () => {
   const handleCerrarSesion = () => {
     const auth = getAuth();
     auth.signOut();
-    setMenuAbierto(false);
+    cerrarMenu();
   };
-
   const handleCambiarTipo = (tipo) => {
     setTipoContenido(tipo);
     if (tipo === 'buscador') {
@@ -244,9 +259,8 @@ const Catalogo = () => {
     } else {
       filtrar(todosLosItems, plataformaActiva, busqueda, tipo);
     }
-    setMenuAbierto(false);
+    cerrarMenu();
   };
-
   const obtenerUrlVideo = () => {
     if (!item) return '';
     return `${URL_SERVIDOR}/peliculas/${item.id_tmdb}/master.m3u8`;
@@ -264,10 +278,7 @@ const Catalogo = () => {
     localStorage.setItem('miLista', JSON.stringify(nuevos));
   };
 
-  // --- RENDER ---
-  if (loadingAuth) {
-    return <div className="loading-container"><div className="loading-spinner"></div></div>;
-  }
+  if (loadingAuth) return <div className="loading-container"><div className="loading-spinner"></div></div>;
 
   if (!usuario) {
     return (
@@ -284,33 +295,78 @@ const Catalogo = () => {
   }
 
   return (
-    <div className="catalogo-wrapper">
+    <div className="catalogo-wrapper" style={{ backgroundColor: '#000', minHeight: '100vh', color: 'white' }}>
       
-      {/* HEADER (Solo se muestra si NO estamos buscando) */}
+      {/* HEADER CORREGIDO: Soporte para Notch / Safe Area */}
       {tipoContenido !== 'buscador' && (
-        <header className="header-main">
-          <button className="menu-btn" onClick={() => setMenuAbierto(!menuAbierto)}>☰</button>
-          <img src="/logo.png" alt="StreamGo" className="logo-app" onClick={() => handleCambiarTipo('todo')} />
-          <button className="search-btn-header" onClick={() => handleCambiarTipo('buscador')}>
-            <img src="/assets/icon-buscador.svg" alt="Buscar" />
-          </button>
+        <header className="header-main" style={{ 
+          backgroundColor: '#000', 
+          borderBottom: '1px solid #111', 
+          zIndex: 1000, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          padding: '0 15px',
+          paddingTop: 'env(safe-area-inset-top)', // ESTO BAJA EL HEADER DEL NOTCH
+          height: 'calc(80px + env(safe-area-inset-top))', // AJUSTA LA ALTURA TOTAL
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0
+        }}>
+          
+          <div style={{ width: '40px' }}>
+            <button className="menu-btn" onClick={() => menuAbierto ? cerrarMenu() : setMenuAbierto(true)} style={{ color: 'white', fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>☰</button>
+          </div>
+          
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <img 
+              src="/logo.png" 
+              alt="Neveus" 
+              onClick={() => handleCambiarTipo('todo')} 
+              style={{ height: '65px', maxWidth: '100%', objectFit: 'contain', cursor: 'pointer' }} 
+            />
+          </div>
+          
+          <div style={{ width: '40px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="search-btn-header" onClick={() => handleCambiarTipo('buscador')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              <img src="/assets/icon-buscador.svg" alt="Buscar" style={{ width: '24px', height: '24px' }} />
+            </button>
+          </div>
           
           {menuAbierto && (
             <>
-              <div className="menu-overlay" onClick={() => setMenuAbierto(false)}></div>
-              <div className="menu-lateral">
-                <div className="menu-header">
+              <div className={`menu-overlay ${animandoCierre ? 'cerrando' : ''}`} onClick={cerrarMenu}></div>
+              <div className={`menu-lateral ${animandoCierre ? 'cerrando' : ''}`} style={{ backgroundColor: '#000', paddingTop: 'env(safe-area-inset-top)' }}>
+                <div className="menu-header" style={{ borderBottom: '1px solid #222' }}>
                   <h2>Menú</h2>
-                  <button className="btn-cerrar-menu" onClick={() => setMenuAbierto(false)}>✕</button>
+                  <button className="btn-cerrar-menu" onClick={cerrarMenu}>✕</button>
                 </div>
                 <nav className="menu-nav">
-                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>Inicio</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'buscador' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('buscador')}>Buscador</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>Películas</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>Series</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>Mis Favoritos</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>Mi Lista</button>
-                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>Cerrar Sesión</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>
+                    <img src="/assets/icon-inicio.svg" alt="" className="menu-icon-img" /> Inicio
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'buscador' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('buscador')}>
+                    <img src="/assets/icon-buscador.svg" alt="" className="menu-icon-img" /> Buscador
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>
+                    <img src="/assets/icon-peliculas.svg" alt="" className="menu-icon-img" /> Películas
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>
+                    <img src="/assets/icon-series.svg" alt="" className="menu-icon-img" /> Series
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>
+                    <img src="/assets/icon-favoritos.svg" alt="" className="menu-icon-img" /> Mis Favoritos
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>
+                    <img src="/assets/icon-milista.svg" alt="" className="menu-icon-img" /> Mi Lista
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'cuenta' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('cuenta')}>
+                    <img src="/assets/icon-cuenta.svg" alt="" className="menu-icon-img" /> Cuenta
+                  </button>
+                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>
+                    <img src="/assets/icon-cerrar.svg" alt="" className="menu-icon-img" /> Cerrar Sesión
+                  </button>
                 </nav>
               </div>
             </>
@@ -318,106 +374,87 @@ const Catalogo = () => {
         </header>
       )}
 
-      <div className="filas-contenido">
+      {/* CUERPO PRINCIPAL - AJUSTE DE PADDING PARA NO QUEDAR BAJO EL HEADER BAJADO */}
+      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(100px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
         
-        {/* PANTALLA DE BÚSQUEDA (Restaurada con flecha y cruz) */}
+        {/* PANTALLA CUENTA */}
+        {tipoContenido === 'cuenta' && (
+          <div className="cuenta-screen" style={{ 
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+              minHeight: '60vh', textAlign: 'center', padding: '20px'
+          }}>
+              <div style={{ 
+                  width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#222', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px',
+                  border: '2px solid #333'
+              }}>
+                  <img src="/assets/icon-cuenta.svg" alt="Usuario" style={{ width: '50px', height: '50px', filter: 'invert(1)' }} />
+              </div>
+              <h2 style={{ marginBottom: '10px', fontSize: '24px' }}>Mi Cuenta</h2>
+              <p style={{ color: '#aaa', marginBottom: '30px', fontSize: '16px' }}>{usuario?.email}</p>
+              
+              <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '10px', width: '100%', maxWidth: '300px', border: '1px solid #222' }}>
+                  <p style={{ color: '#666', fontSize: '14px', marginBottom: '5px' }}>Estado de la suscripción</p>
+                  <p style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '18px', marginBottom: '10px' }}>ACTIVO</p>
+                  
+                  {infoUsuario?.fecha_vencimiento && (
+                    <div style={{ borderTop: '1px solid #333', marginTop: '10px', paddingTop: '10px' }}>
+                        <p style={{ color: '#666', fontSize: '12px' }}>Vence el:</p>
+                        <p style={{ color: '#fff', fontSize: '15px' }}>{new Date(infoUsuario.fecha_vencimiento).toLocaleDateString()}</p>
+                    </div>
+                  )}
+              </div>
+          </div>
+        )}
+
+        {/* BUSCADOR - TAMBIÉN SOPORTA NOTCH */}
         {tipoContenido === 'buscador' && (
-          <div className="search-screen" style={{ width: '100%', minHeight: '100vh', background: '#141414', zIndex: 999, position: 'relative' }}>
-             
-             {/* HEADER DEL BUSCADOR */}
-             <div className="search-header" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-               <button 
-                 className="btn-back-search" 
-                 onClick={() => handleCambiarTipo('todo')}
-                 style={{ background: 'none', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}
-               >
-                 ←
+          <div className="search-screen" style={{ width: '100%', minHeight: '100vh', background: '#000', zIndex: 999, position: 'relative', paddingTop: 0 }}>
+             <div className="search-header" style={{ 
+                 padding: '10px 20px 10px 20px', 
+                 paddingTop: 'env(safe-area-inset-top)', 
+                 display: 'flex', alignItems: 'center', gap: '15px',
+                 backgroundColor: '#000', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid #333'
+             }}>
+               <button className="btn-back-search" onClick={() => handleCambiarTipo('todo')}
+                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center' }}>
+                   <img src="/assets/icon-atras.svg" alt="Volver" style={{ width: '28px', height: '28px', filter: 'brightness(0) invert(1)' }} />
                </button>
-               
                <div className="search-input-wrapper" style={{ position: 'relative', flex: 1 }}>
-                 <input 
-                   ref={inputBusquedaRef}
-                   type="text" 
-                   placeholder="Buscar película o serie..." 
-                   value={busqueda}
-                   onChange={(e) => {
-                      const val = e.target.value;
-                      setBusqueda(val);
-                      filtrar(todosLosItems, plataformaActiva, val, 'buscador');
-                   }}
-                   style={{
-                      width: '100%', padding: '12px 40px 12px 20px', borderRadius: '30px',
-                      border: 'none', backgroundColor: '#333', color: 'white',
-                      fontSize: '16px', outline: 'none'
-                   }}
+                 <input ref={inputBusquedaRef} type="text" placeholder="Buscar película, serie..." value={busqueda}
+                   onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, plataformaActiva, e.target.value, 'buscador'); }}
+                   style={{ width: '100%', padding: '12px 45px 12px 20px', borderRadius: '8px', border: '1px solid #333', backgroundColor: '#000', color: 'white', fontSize: '16px', outline: 'none' }}
                  />
                  {busqueda && (
-                   <button 
-                     className="btn-clear-search" 
-                     onClick={() => {
-                       setBusqueda('');
-                       filtrar(todosLosItems, null, '', 'buscador');
-                       inputBusquedaRef.current.focus();
-                     }}
-                     style={{
-                       position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                       background: 'none', border: 'none', color: '#999', fontSize: '18px', cursor: 'pointer'
-                     }}
-                   >
-                     ✕
-                   </button>
+                   <button className="btn-clear-search" onClick={() => { setBusqueda(''); filtrar(todosLosItems, null, '', 'buscador'); inputBusquedaRef.current.focus(); }}
+                     style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#fff', fontSize: '16px', cursor: 'pointer' }}>✕</button>
                  )}
                </div>
              </div>
-             
-             {/* RESULTADOS */}
-             <div className="search-results-grid" style={{
-                 display: 'grid', 
-                 gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', 
-                 gap: '15px', 
-                 padding: '0 20px 20px 20px'
-             }}>
-                {itemsFiltrados['Resultados'] && itemsFiltrados['Resultados'].length > 0 ? (
-                  itemsFiltrados['Resultados'].map(p => (
+             <div className="search-results-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px', padding: '20px', marginTop: '20px' }}>
+                {itemsFiltrados['Resultados']?.map(p => (
                     <div key={p.uniqueKey || p.id} onClick={() => setItem(p)} style={{cursor: 'pointer'}}>
-                       <img 
-                           src={getImagenUrl(p.imagen_poster)} 
-                           alt={p.titulo} 
-                           style={{width: '100%', borderRadius: '8px', aspectRatio: '2/3', objectFit: 'cover'}}
-                       />
-                       <p style={{marginTop: '5px', fontSize: '13px', color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                           {p.titulo}
-                       </p>
+                       <img src={getImagenUrl(p.imagen_poster)} alt={p.titulo} style={{width: '100%', borderRadius: '6px', aspectRatio: '2/3', objectFit: 'cover'}}/>
+                       <p style={{marginTop: '6px', fontSize: '12px', color: '#ddd', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{p.titulo}</p>
                     </div>
-                  ))
-                ) : (
-                  busqueda.length > 0 && <div style={{gridColumn: '1/-1', textAlign: 'center', color: '#666', marginTop: '20px'}}>No se encontraron resultados</div>
-                )}
+                ))}
              </div>
           </div>
         )}
 
-        {tipoContenido !== 'buscador' && (
+        {/* HOME / FILAS */}
+        {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && (
            <>
-              {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
-                <div className="filtros-container">
+              <div className="filtros-container" style={{ marginBottom: '20px' }}>
                 {PLATAFORMAS.map(p => (
-                  <div
-                    key={p.id}
-                    className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
-                    onClick={() => {
-                      const nueva = plataformaActiva === p.id ? null : p.id;
-                      setPlataformaActiva(nueva);
-                      filtrar(todosLosItems, nueva, busqueda, tipoContenido);
-                    }}
+                  <div key={p.id} className={`btn-plat img-btn ${plataformaActiva === p.id ? 'activo' : ''}`}
+                    onClick={() => { const nueva = plataformaActiva === p.id ? null : p.id; setPlataformaActiva(nueva); filtrar(todosLosItems, nueva, busqueda, tipoContenido); }}
                     tabIndex="0"
                   >
                     <img src={p.logo} alt={p.id} />
                   </div>
                 ))}
-                </div>
-              )}
-
+              </div>
               {Object.keys(itemsFiltrados).sort().map(g => (
                 <Fila key={g} titulo={g} peliculas={itemsFiltrados[g]} onClickPelicula={(p) => setItem(p)} />
               ))}
@@ -425,16 +462,18 @@ const Catalogo = () => {
         )}
       </div>
 
+      {/* PLAYER */}
       {verPeliculaCompleta && item && (
-        <div className="player-overlay">
+        <div className="player-overlay" style={{ background: '#000' }}>
           <button className="btn-volver-player" onClick={() => setVerPeliculaCompleta(false)}>← Volver</button>
           <VideoPlayer src={obtenerUrlVideo()} />
         </div>
       )}
 
+      {/* MODAL */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ backgroundColor: '#000', border: '1px solid #222', paddingTop: 'env(safe-area-inset-top)' }}>
             <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_fondo || item.backdrop_path || item.poster_path)})` }}>
               <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
             </div>
@@ -444,7 +483,7 @@ const Catalogo = () => {
                 {item.fecha_estreno && <span className="meta-tag">{item.fecha_estreno.split('-')[0]}</span>}
                 {item.duracion && <span>{item.duracion} min</span>}
               </div>
-              <p className="modal-desc">{item.descripcion || item.overview}</p>
+              <p className="modal-desc" style={{ color: '#ccc' }}>{item.descripcion || item.overview}</p>
               <div className="modal-actions">
                 <button className={`action-btn ${favoritos.includes(item.id) ? 'activo' : ''}`} onClick={() => toggleFavorito(item.id)}>
                   <img src="/assets/icon-favoritos.svg" alt="Favorito" />
@@ -455,9 +494,7 @@ const Catalogo = () => {
                   <span>Mi Lista</span>
                 </button>
               </div>
-              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)} tabIndex="0">
-                ▶ REPRODUCIR
-              </button>
+              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)} tabIndex="0">▶ REPRODUCIR</button>
             </div>
           </div>
         </div>

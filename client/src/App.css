@@ -45,7 +45,7 @@ body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
-.logo-app { height: 55px; width: auto; object-fit: contain; cursor: pointer; }
+.logo-app { height: 65px; width: auto; object-fit: contain; cursor: pointer; }
 
 /* Header Scrolled (Semitransparente) */
 .header-main.scrolled {
@@ -100,12 +100,30 @@ body {
   to { transform: translateX(0); }
 }
 
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 .menu-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.menu-lateral.cerrando {
+  animation: slideOutLeft 0.3s ease forwards;
+}
+
+.menu-overlay.cerrando {
+  animation: fadeOut 0.3s ease forwards;
 }
 
 .menu-header h2 {
@@ -225,7 +243,6 @@ body {
   scrollbar-width: none;
   background: #000000;
   margin-bottom: 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .filtros-container::-webkit-scrollbar { display: none; }
 
