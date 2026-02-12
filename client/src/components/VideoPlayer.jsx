@@ -2,30 +2,33 @@ import React, { useEffect, useRef } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
-import { StatusBar } from '@capacitor/status-bar'; // Opcional: para ocultar la barra superior
+import { StatusBar } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 const VideoPlayer = ({ src, onClose }) => {
   const videoRef = useRef(null);
   const playerRef = useRef(null);
 
   useEffect(() => {
-    // --- 1. FORZAR MODO HORIZONTAL (LANDSCAPE) ---
-    const lockOrientation = async () => {
-      try {
-        // Guardamos la orientación actual por si acaso
-        await ScreenOrientation.lock({ orientation: 'landscape' });
-        
-        // Ocultar barra de estado (batería, hora) para efecto cine
-        // Si no tienes @capacitor/status-bar instalado, borra esta línea
-        await StatusBar.hide(); 
-      } catch (error) {
-        console.error("No se pudo rotar la pantalla (¿Estás en navegador web?):", error);
+    const isNative = Capacitor.isNativePlatform();
+
+    // --- 1. MODO CINE (Solo en App Nativa) ---
+    const setupNativeView = async () => {
+      if (isNative) {
+        try {
+          // Forzar horizontal
+          await ScreenOrientation.lock({ orientation: 'landscape' });
+          // Ocultar batería/hora
+          await StatusBar.hide();
+        } catch (error) {
+          console.warn("Error configurando vista nativa:", error);
+        }
       }
     };
 
-    lockOrientation();
+    setupNativeView();
 
-    // --- 2. CONFIGURAR REPRODUCTOR ---
+    // --- 2. CONFIGURAR REPRODUCTOR VIDEO.JS ---
     if (!playerRef.current) {
       const videoElement = document.createElement("video-js");
       videoElement.classList.add('vjs-big-play-centered');
@@ -36,12 +39,8 @@ const VideoPlayer = ({ src, onClose }) => {
         controls: true,
         responsive: true,
         fluid: true,
+        playbackRates: [0.5, 1, 1.5, 2],
         sources: [{ src: src, type: 'video/mp4' }]
-      });
-      
-      // Evento para cuando termina el video (Opcional)
-      playerRef.current.on('ended', () => {
-          // Podrías cerrar el player aquí automáticamente
       });
 
     } else {
@@ -49,20 +48,22 @@ const VideoPlayer = ({ src, onClose }) => {
       player.src({ src: src, type: 'video/mp4' });
     }
 
-    // --- 3. LIMPIEZA AL SALIR (Volver a Vertical) ---
+    // --- 3. LIMPIEZA AL SALIR ---
     return () => {
-      const unlockOrientation = async () => {
-        try {
-          // Volver a vertical
-          await ScreenOrientation.lock({ orientation: 'portrait' });
-          // O desbloquear para que rote libre: await ScreenOrientation.unlock();
-          
-          // Mostrar barra de estado de nuevo
-          await StatusBar.show();
-        } catch (e) {}
+      const resetNativeView = async () => {
+        if (isNative) {
+          try {
+            // Volver a vertical al cerrar la película
+            await ScreenOrientation.lock({ orientation: 'portrait' });
+            // Mostrar batería/hora de nuevo
+            await StatusBar.show();
+          } catch (e) {
+            console.warn("Error reseteando vista nativa:", e);
+          }
+        }
       };
 
-      unlockOrientation();
+      resetNativeView();
 
       if (playerRef.current && !playerRef.current.isDisposed()) {
         playerRef.current.dispose();
@@ -72,7 +73,20 @@ const VideoPlayer = ({ src, onClose }) => {
   }, [src]);
 
   return (
-    <div ref={videoRef} style={{ width: '100vw', height: '100vh', background: '#000', overflow: 'hidden' }} />
+    <div 
+      ref={videoRef} 
+      className="video-container"
+      style={{ 
+        width: '100vw', 
+        height: '100vh', 
+        background: '#000', 
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 9999 
+      }} 
+    />
   );
 };
 
