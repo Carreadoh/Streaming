@@ -288,6 +288,7 @@ body {
   display: flex; align-items: flex-start;
   padding-top: env(safe-area-inset-top); /* Subimos el modal al tope seguro */
 }
+
 .modal-content {
   width: 100%; background: #000000;
   border-radius: 0;
@@ -307,10 +308,66 @@ body {
   background-size: cover; background-position: center;
   position: relative;
 }
+
+/* --- Personalización de Video.js --- */
+
+.video-js .vjs-big-play-button {
+    background-color: rgba(229, 9, 20, 0.8) !important; /* Rojo Netflix */
+    border: none !important;
+    border-radius: 50% !important; /* Redondo */
+    width: 80px !important;
+    height: 80px !important;
+    line-height: 80px !important;
+    font-size: 50px !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+    transition: all 0.2s ease;
+}
+
+.video-js .vjs-big-play-button:hover {
+    background-color: rgb(229, 9, 20) !important;
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* Barra de control */
+.video-js .vjs-control-bar {
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0));
+    height: 70px;
+    padding-bottom: 10px;
+}
+
+/* Barra de Progreso */
+.video-js .vjs-slider {
+    background-color: rgba(255,255,255,0.3);
+}
+
+/* Nivel de carga */
+.video-js .vjs-load-progress div {
+    background-color: rgba(255,255,255,0.5);
+}
+
+/* Progreso actual */
+.video-js .vjs-play-progress {
+    background-color: #E50914 !important;
+}
+
+/* Bolita del slider */
+.video-js .vjs-play-progress:before {
+    font-size: 1.2em;
+    color: #E50914;
+    top: -0.15em;
+}
+
+/* Volumen */
+.video-js .vjs-volume-level {
+    background-color: #E50914 !important;
+}
+
 .btn-cerrar {
   position: absolute; top: 5px; right: 15px;
-  z-index: 100; /* Aseguramos que esté por encima de todo */
-  width: 45px; height: 45px; /* Más grande para el dedo */
+  z-index: 100; 
+  width: 45px; height: 45px;
   border-radius: 50%;
   background: rgba(0,0,0,0.7); color: white; border: none; font-size: 24px;
   display: flex; align-items: center; justify-content: center;
