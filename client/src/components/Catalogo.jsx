@@ -46,7 +46,11 @@ const Catalogo = () => {
   const [itemsFiltrados, setItemsFiltrados] = useState({});
   const [plataformaActiva, setPlataformaActiva] = useState(null);
   const [busqueda, setBusqueda] = useState('');
-  const [tipoContenido, setTipoContenido] = useState('todo'); 
+  const [tipoContenido, setTipoContenido] = useState(() => {
+    if (window.location.pathname.startsWith('/admin')) return 'admin';
+    if (window.location.pathname.startsWith('/reseller')) return 'reseller';
+    return 'todo';
+  }); 
   const [menuAbierto, setMenuAbierto] = useState(false);
   
   const [item, setItem] = useState(null); 
@@ -314,7 +318,7 @@ const Catalogo = () => {
 
   if (loadingAuth) return <div className="loading-container"><div className="loading-spinner"></div></div>;
 
-  if (!usuario) {
+  if (!usuario && tipoContenido !== 'admin' && tipoContenido !== 'reseller') {
     return (
       <div className="login-container">
         <form onSubmit={handleLogin} className="login-form">
@@ -332,7 +336,7 @@ const Catalogo = () => {
     <div className="catalogo-wrapper" style={{ backgroundColor: '#000', minHeight: '100vh', color: 'white' }}>
       
       {/* HEADER */}
-      {tipoContenido !== 'buscador' && (
+      {tipoContenido !== 'buscador' && tipoContenido !== 'admin' && tipoContenido !== 'reseller' && (
         <header className="header-main" style={{ 
           backgroundColor: '#000', borderBottom: '1px solid #111', zIndex: 1000, 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
@@ -397,7 +401,7 @@ const Catalogo = () => {
       )}
 
       {/* CONTENIDO */}
-      <div className="filas-contenido" style={{ paddingTop: (tipoContenido === 'buscador' || tipoContenido === 'admin') ? '0' : 'calc(115px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
+      <div className="filas-contenido" style={{ paddingTop: (tipoContenido === 'buscador' || tipoContenido === 'admin' || tipoContenido === 'reseller') ? '0' : 'calc(115px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
         
         {tipoContenido === 'cuenta' && (
           <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
@@ -432,11 +436,11 @@ const Catalogo = () => {
           </div>
         )}
 
-        {tipoContenido === 'admin' && (
-            <AdminPanel onVolver={() => handleCambiarTipo('todo')} />
+        {(tipoContenido === 'admin' || tipoContenido === 'reseller') && (
+            <AdminPanel onVolver={() => handleCambiarTipo('todo')} isReseller={tipoContenido === 'reseller'} />
         )}
 
-        {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && tipoContenido !== 'admin' && (
+        {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && tipoContenido !== 'admin' && tipoContenido !== 'reseller' && (
             <>
               {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
                 <div className="filtros-container">

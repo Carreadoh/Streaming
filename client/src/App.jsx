@@ -3,6 +3,7 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Catalogo from './components/Catalogo';
 import AdminPanel from './components/AdminPanel';
+import ResellerPanel from './components/ResellerPanel';
 import './App.css';
 
 function App() {
@@ -13,7 +14,7 @@ function App() {
           <Route path="/" element={<Catalogo />} />
 
           <Route path="/admin" element={<AdminPanel />} />
-
+          <Route path="/reseller" element={<ResellerPanel onVolver={() => window.location.href = '/'} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

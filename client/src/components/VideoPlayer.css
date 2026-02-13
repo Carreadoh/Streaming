@@ -14,11 +14,10 @@
 
 /* Video: Ajustado para tocar bordes */
 .netflix-video {
-    width: 100%;
-    height: 100%;
-    /* contain: toca los bordes sin recortar nada. 
-       Si quieres que llene TODO y recorte un poco, usa 'cover' */
-    object-fit: cover; 
+    width: 96%;
+    height: 113%;
+    /* contain: mantiene la relación de aspecto original sin deformar */
+    object-fit: contain; 
     
     /* Aceleración de Hardware (Vital para que no se ponga negro) */
     transform: translate3d(0, 0, 0);
