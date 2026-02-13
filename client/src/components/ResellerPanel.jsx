@@ -10,7 +10,7 @@ const ResellerPanel = ({ onVolver }) => {
   const [user, setUser] = useState(null); // Objeto del revendedor (id, creditos, etc)
   
   // Login Form
-  const [emailLogin, setEmailLogin] = useState('');
+  const [usernameLogin, setUsernameLogin] = useState('');
   const [passLogin, setPassLogin] = useState('');
   const [error, setError] = useState('');
 
@@ -23,9 +23,11 @@ const ResellerPanel = ({ onVolver }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Formulario Crear Cliente
-  const [clientEmail, setClientEmail] = useState('');
+  const [clientName, setClientName] = useState('');
   const [clientPass, setClientPass] = useState('');
-  const [clientMeses, setClientMeses] = useState(1);
+  const [suscripcionValor, setSuscripcionValor] = useState(1);
+  const [clientDeviceLimit, setClientDeviceLimit] = useState(2); // Límite de dispositivos
+  const [suscripcionUnidad, setSuscripcionUnidad] = useState('meses');
   const [msgAction, setMsgAction] = useState('');
 
   // --- LOGIN REVENDEDOR ---
@@ -33,10 +35,13 @@ const ResellerPanel = ({ onVolver }) => {
     e.preventDefault();
     setLoading(true);
     try {
+        const emailToAuth = usernameLogin.includes('@') ? usernameLogin : `${usernameLogin}@neveus.lat`;
+        const deviceId = localStorage.getItem('device_id') || `panel-device-${Date.now()}`;
         const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
             action: 'login',
-            email: emailLogin,
-            password: passLogin
+            email: emailToAuth,
+            password: passLogin,
+            deviceId: deviceId
         });
 
         if (res.data.success) {
@@ -109,19 +114,25 @@ const ResellerPanel = ({ onVolver }) => {
     setMsgAction("⏳ Creando cliente...");
 
     try {
+        const emailToCreate = clientName.includes('@') ? clientName : `${clientName}@neveus.lat`;
         const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
             action: 'register',
             rol_creador: 'reseller',
             creador_id: user.id, // ID del revendedor
-            email: clientEmail,
+            email: emailToCreate,
             password: clientPass,
-            meses: clientMeses
+            suscripcion_valor: suscripcionValor,
+            suscripcion_unidad: suscripcionUnidad,
+            limite_dispositivos: clientDeviceLimit
         });
 
         if (res.data.success) {
             setMsgAction("✅ " + res.data.message);
-            setClientEmail('');
+            setClientName('');
             setClientPass('');
+            setSuscripcionValor(1);
+            setSuscripcionUnidad('meses');
+            setClientDeviceLimit(2); // Resetear
             cargarDatos(user); // Recargar para ver descuento de créditos y nuevo cliente
         } else {
             setMsgAction("❌ " + res.data.message);
@@ -156,7 +167,7 @@ const ResellerPanel = ({ onVolver }) => {
           </div>
           <h2 style={{color:'white', marginBottom:'20px', textAlign: 'center'}}>Acceso Revendedor</h2>
           <form onSubmit={handleLogin} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-            <input className="input-dark" type="text" placeholder="Email" value={emailLogin} onChange={e=>setEmailLogin(e.target.value)} />
+            <input className="input-dark" type="text" placeholder="Usuario" value={usernameLogin} onChange={e=>setUsernameLogin(e.target.value)} />
             <input className="input-dark" type="password" placeholder="Contraseña" value={passLogin} onChange={e=>setPassLogin(e.target.value)} />
             <button className="btn-primary" type="submit" style={{backgroundColor: '#8b5cf6'}}>Entrar</button>
             {error && <p style={{color:'#ef4444', textAlign:'center', fontSize:'13px'}}>{error}</p>}
@@ -203,13 +214,21 @@ const ResellerPanel = ({ onVolver }) => {
                 <h2>Crear Nuevo Cliente</h2>
                 <p style={{fontSize: '12px', color: '#999', marginBottom: '15px'}}>Costo: 1 Crédito por cuenta creada.</p>
                 <form onSubmit={crearCliente} className="import-form">
-                    <div className="form-group"><label>Correo Cliente</label><input className="input-dark" type="email" required value={clientEmail} onChange={e=>setClientEmail(e.target.value)} /></div>
+                    <div className="form-group"><label>Nombre de Usuario</label><input className="input-dark" type="text" required value={clientName} onChange={e=>setClientName(e.target.value)} /></div>
                     <div className="form-group"><label>Contraseña</label><input className="input-dark" type="text" required value={clientPass} onChange={e=>setClientPass(e.target.value)} /></div>
                     <div className="form-group">
-                        <label>Servicio (Meses)</label>
-                        <select className="select-dark" value={clientMeses} onChange={e=>setClientMeses(e.target.value)}>
-                            <option value="1">1 Mes</option><option value="3">3 Meses</option><option value="6">6 Meses</option><option value="12">1 Año</option>
-                        </select>
+                        <label>Duración Servicio</label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <input className="input-dark" type="number" value={suscripcionValor} onChange={e => setSuscripcionValor(Number(e.target.value))} min="1" style={{ flex: 1 }} />
+                            <div className="toggle-buttons">
+                                <button type="button" className={suscripcionUnidad === 'horas' ? 'active' : ''} onClick={() => setSuscripcionUnidad('horas')}>Horas</button>
+                                <button type="button" className={suscripcionUnidad === 'meses' ? 'active' : ''} onClick={() => setSuscripcionUnidad('meses')}>Meses</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label>Límite de Dispositivos</label>
+                        <input className="input-dark" type="number" value={clientDeviceLimit} onChange={e => setClientDeviceLimit(Number(e.target.value))} min="1" />
                     </div>
                     <button type="submit" className="btn-primary" style={{backgroundColor: user?.creditos > 0 ? '#8b5cf6' : '#555'}} disabled={user?.creditos < 1}>
                         {user?.creditos > 0 ? 'Crear Cliente (-1 Crédito)' : 'Sin Créditos'}
@@ -223,17 +242,19 @@ const ResellerPanel = ({ onVolver }) => {
                 <div className="table-container">
                     <table className="modern-table">
                         <thead>
-                            <tr><th>Email</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr>
+                            <tr><th>Usuario</th><th>Vencimiento</th><th>Dispositivos</th><th>Estado</th><th>Acción</th></tr>
                         </thead>
                         <tbody>
                             {misClientes.map(u => {
                                 const vencimiento = new Date(u.fecha_vencimiento);
                                 const hoy = new Date();
                                 const vencido = vencimiento < hoy;
+                                const deviceUsage = `${u.active_devices?.length || 0} / ${u.limite_dispositivos || 1}`;
                                 return (
                                     <tr key={u.id}>
-                                        <td>{u.email}</td>
+                                        <td>{u.email.replace('@neveus.lat', '')}</td>
                                         <td>{vencimiento.toLocaleDateString()}</td>
+                                        <td>{deviceUsage}</td>
                                         <td><span className={`status-badge ${vencido ? 'badge-serie' : 'badge-movie'}`}>{vencido ? 'VENCIDO' : 'ACTIVO'}</span></td>
                                         <td><button className="btn-icon" onClick={()=>eliminarCliente(u.id)}>🗑️</button></td>
                                     </tr>
@@ -249,6 +270,7 @@ const ResellerPanel = ({ onVolver }) => {
           </div>
         ) : vista === 'catalogo' ? (
           /* --- VISTA CATALOGO (SOLO LECTURA) --- */
+
           <div className="dashboard-split">
              <div className="section-card" style={{width:'100%'}}>
                 <div className="section-header">

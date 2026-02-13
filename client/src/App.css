@@ -22,6 +22,7 @@ body {
 .login-logo { width: 100%; max-width: 320px; height: auto; margin-bottom: 30px; align-self: center; display: block; }
 .login-form input { padding: 15px; border-radius: 5px; border: none; background: #333; color: white; }
 .login-form button { padding: 15px; background: var(--red-netflix); color: white; border: none; border-radius: 5px; font-weight: bold; }
+.login-form .error { color: #ff4444; text-align: center; font-size: 14px; margin-top: -10px; }
 
 /* --- HEADER MÓVIL --- */
 .header-main {
@@ -611,4 +612,30 @@ body {
   }
   
   .btn-volver-player { display: none; } /* En TV se usa botón "Atrás" del control */
+}
+
+/* --- BOTONES TOGGLE (Horas/Meses) --- */
+.toggle-buttons {
+  display: flex;
+  border: 1px solid #555;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.toggle-buttons button {
+  background: #333;
+  border: none;
+  color: #aaa;
+  padding: 0 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+.toggle-buttons button.active {
+  background: #8b5cf6;
+  color: white;
+  font-weight: bold;
+}
+.toggle-buttons button:not(:last-child) {
+  border-right: 1px solid #555;
 }

@@ -22,12 +22,14 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Estados Formularios Clientes
-  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
   const [newUserPass, setNewUserPass] = useState('');
-  const [mesesSuscripcion, setMesesSuscripcion] = useState(1);
+  const [suscripcionValor, setSuscripcionValor] = useState(1);
+  const [newUserDeviceLimit, setNewUserDeviceLimit] = useState(2); // Límite de dispositivos
+  const [suscripcionUnidad, setSuscripcionUnidad] = useState('meses');
   
   // Estados Formularios Revendedores
-  const [newResellerEmail, setNewResellerEmail] = useState('');
+  const [newResellerName, setNewResellerName] = useState('');
   const [newResellerPass, setNewResellerPass] = useState('');
   const [newResellerCredits, setNewResellerCredits] = useState(10); // Default 10 creditos
 
@@ -38,42 +40,53 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
 
-    // --- LOGIN REVENDEDOR ---
-    if (isReseller) {
-        try {
-            const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
-                action: 'login',
-                email: username,
-                password: password
-            });
-            if (res.data.success) {
-                if (res.data.user.rol !== 'reseller' && res.data.user.rol !== 'admin') {
-                    setError('No tienes permisos de revendedor');
-                    return;
-                }
-                setIsAuthenticated(true);
-                setCurrentUser(res.data.user);
-                localStorage.setItem('admin_session', JSON.stringify(res.data.user));
-                setError('');
-                cargarTodo(res.data.user.id);
-            } else {
-                setError(res.data.message || 'Credenciales incorrectas');
-            }
-        } catch (err) { setError('Error de conexión'); }
-        return;
-    }
-
-    // --- LOGIN ADMIN ---
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
+    // Caso especial para el super-admin local (solo en el panel de admin)
+    if (!isReseller && username === ADMIN_USER && password === ADMIN_PASS) {
       const adminUser = { id: 'admin', rol: 'admin', email: ADMIN_USER };
       setIsAuthenticated(true);
       setCurrentUser(adminUser);
       localStorage.setItem('admin_session', JSON.stringify(adminUser));
       setError('');
       cargarTodo();
-    } else {
-      setError('Credenciales incorrectas');
+      return;
+    }
+
+    // Login vía API para todos los demás usuarios (revendedores y otros admins)
+    try {
+        const emailToAuth = username.includes('@') ? username : `${username}@neveus.lat`;
+        const deviceId = localStorage.getItem('device_id') || `panel-device-${Date.now()}`;
+        const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
+            action: 'login',
+            email: emailToAuth,
+            password: password,
+            deviceId: deviceId
+        });
+
+        if (res.data.success && res.data.user) {
+            const user = res.data.user;
+
+            // Validar rol según el panel
+            if (isReseller && user.rol !== 'reseller') {
+                setError('No tienes permisos de revendedor.');
+                return;
+            }
+            if (!isReseller && user.rol !== 'admin') {
+                setError('No tienes permisos de administrador.');
+                return;
+            }
+
+            // Autenticación exitosa
+            setIsAuthenticated(true);
+            setCurrentUser(user);
+            localStorage.setItem('admin_session', JSON.stringify(user));
+            cargarTodo(user.id);
+        } else {
+            setError(res.data.message || 'Credenciales incorrectas');
+        }
+    } catch (err) {
+        setError('Error de conexión o credenciales inválidas.');
     }
   };
 
@@ -159,11 +172,14 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
     setMsgUsuario("⏳ Creando cliente...");
 
     try {
+        const email = newUserName.includes('@') ? newUserName : `${newUserName}@neveus.lat`;
         const payload = {
             action: 'register',
-            email: newUserEmail,
+            email: email,
             password: newUserPass,
-            meses: mesesSuscripcion
+            suscripcion_valor: suscripcionValor,
+            suscripcion_unidad: suscripcionUnidad,
+            limite_dispositivos: newUserDeviceLimit
         };
 
         if (isReseller && currentUser) {
@@ -173,12 +189,15 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
         const res = await axios.post(`${URL_SERVIDOR}/auth.php`, payload);
 
         if (res.data.success) {
-            setMsgUsuario("✅ " + res.data.message);
-            setNewUserEmail('');
+            setMsgUsuario(`✅ Usuario ${newUserName} creado.`);
+            setNewUserName('');
             setNewUserPass('');
-            cargarTodo();
+            setSuscripcionValor(1);
+            setSuscripcionUnidad('meses');
+            setNewUserDeviceLimit(2); // Resetear
+            cargarTodo(isReseller ? currentUser.id : null);
         } else {
-            setMsgUsuario("❌ " + res.data.message);
+            setMsgUsuario("❌ " + (res.data.message || "Error al crear el cliente."));
         }
     } catch (error) { setMsgUsuario("❌ Error de conexión"); }
   };
@@ -189,20 +208,21 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
     setMsgUsuario("⏳ Creando revendedor...");
 
     try {
+        const email = newResellerName.includes('@') ? newResellerName : `${newResellerName}@neveus.lat`;
         const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
             action: 'create_reseller',
-            email: newResellerEmail,
+            email: email,
             password: newResellerPass,
             creditos: newResellerCredits
         });
 
         if (res.data.success) {
-            setMsgUsuario("✅ " + res.data.message);
-            setNewResellerEmail('');
+            setMsgUsuario(`✅ Revendedor ${newResellerName} creado.`);
+            setNewResellerName('');
             setNewResellerPass('');
-            cargarTodo();
+            cargarTodo(); // Admin view, no ID needed to reload all resellers
         } else {
-            setMsgUsuario("❌ " + res.data.message);
+            setMsgUsuario("❌ " + (res.data.message || "Error al crear revendedor."));
         }
     } catch (error) { setMsgUsuario("❌ Error de conexión"); }
   };
@@ -211,7 +231,7 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
     if(!window.confirm("¿Eliminar usuario de la base de datos?")) return;
     try {
         await axios.post(`${URL_SERVIDOR}/auth.php`, { action: 'delete', id: id });
-        cargarTodo();
+        cargarTodo(isReseller ? currentUser.id : null);
     } catch (e) { alert("Error"); }
   }
 
@@ -285,8 +305,8 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
                 <h2>Crear Revendedor</h2>
                 <form onSubmit={crearRevendedor} className="import-form">
                     <div className="form-group">
-                        <label>Email Revendedor</label>
-                        <input className="input-dark" type="email" required value={newResellerEmail} onChange={e=>setNewResellerEmail(e.target.value)} />
+                        <label>Nombre de Usuario</label>
+                        <input className="input-dark" type="text" required value={newResellerName} onChange={e=>setNewResellerName(e.target.value)} />
                     </div>
                     <div className="form-group">
                         <label>Contraseña</label>
@@ -316,7 +336,7 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
                         <tbody>
                             {revendedores.map(u => (
                                 <tr key={u.id}>
-                                    <td>{u.email}</td>
+                                    <td>{u.email.replace('@neveus.lat', '')}</td>
                                     <td>
                                         <span className="meta-tag" style={{background: '#8b5cf6', color: 'white', padding: '4px 8px', borderRadius: '4px'}}>
                                             {u.creditos} Créditos
@@ -339,13 +359,21 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
              <div className="section-card" style={{height: 'fit-content'}}>
                 <h2>Crear Nuevo Cliente</h2>
                 <form onSubmit={crearUsuarioCliente} className="import-form">
-                    <div className="form-group"><label>Correo</label><input className="input-dark" type="email" required value={newUserEmail} onChange={e=>setNewUserEmail(e.target.value)} /></div>
+                    <div className="form-group"><label>Nombre de Usuario</label><input className="input-dark" type="text" required value={newUserName} onChange={e=>setNewUserName(e.target.value)} /></div>
                     <div className="form-group"><label>Contraseña</label><input className="input-dark" type="text" required value={newUserPass} onChange={e=>setNewUserPass(e.target.value)} /></div>
                     <div className="form-group">
-                        <label>Servicio</label>
-                        <select className="select-dark" value={mesesSuscripcion} onChange={e=>setMesesSuscripcion(e.target.value)}>
-                            <option value="1">1 Mes</option><option value="3">3 Meses</option><option value="6">6 Meses</option><option value="12">1 Año</option>
-                        </select>
+                        <label>Duración Servicio</label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <input className="input-dark" type="number" value={suscripcionValor} onChange={e => setSuscripcionValor(Number(e.target.value))} min="1" style={{ flex: 1 }} />
+                            <div className="toggle-buttons">
+                                <button type="button" className={suscripcionUnidad === 'horas' ? 'active' : ''} onClick={() => setSuscripcionUnidad('horas')}>Horas</button>
+                                <button type="button" className={suscripcionUnidad === 'meses' ? 'active' : ''} onClick={() => setSuscripcionUnidad('meses')}>Meses</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label>Límite de Dispositivos</label>
+                        <input className="input-dark" type="number" value={newUserDeviceLimit} onChange={e=>setNewUserDeviceLimit(Number(e.target.value))} min="1" />
                     </div>
                     <button type="submit" className="btn-primary">Crear Usuario</button>
                 </form>
@@ -357,17 +385,19 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
                 <div className="table-container">
                     <table className="modern-table">
                         <thead>
-                            <tr><th>Email</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr>
+                            <tr><th>Usuario</th><th>Vencimiento</th><th>Dispositivos</th><th>Estado</th><th>Acción</th></tr>
                         </thead>
                         <tbody>
                             {usuarios.map(u => {
                                 const vencimiento = new Date(u.fecha_vencimiento);
                                 const hoy = new Date();
                                 const vencido = vencimiento < hoy;
+                                const deviceUsage = `${u.active_devices?.length || 0} / ${u.limite_dispositivos || 1}`;
                                 return (
                                     <tr key={u.id}>
-                                        <td>{u.email}</td>
+                                        <td>{u.email.replace('@neveus.lat', '')}</td>
                                         <td>{vencimiento.toLocaleDateString()}</td>
+                                        <td>{deviceUsage}</td>
                                         <td><span className={`status-badge ${vencido ? 'badge-serie' : 'badge-movie'}`}>{vencido ? 'VENCIDO' : 'ACTIVO'}</span></td>
                                         <td><button className="btn-icon" onClick={()=>eliminarUsuario(u.id)}>🗑️</button></td>
                                     </tr>
@@ -380,6 +410,7 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
           </div>
         ) : (
           /* --- VISTA DASHBOARD / CONTENIDO --- */
+
           <>
              {vista === 'dashboard' && (
                 <div className="stats-grid">

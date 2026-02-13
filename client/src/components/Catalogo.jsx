@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore'; 
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { App as CapacitorApp } from '@capacitor/app'; 
 import { ScreenOrientation } from '@capacitor/screen-orientation'; 
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
 import AdminPanel from './AdminPanel';
+import axios from 'axios';
 import '../App.css'; 
 
 const URL_SERVIDOR = 'https://cine.neveus.lat';
@@ -24,6 +24,31 @@ const cortarTexto = (texto, limite = 150) => {
   return texto.substring(0, limite) + "...";
 };
 
+const limpiarNombreCapitulo = (nombreArchivo, numCapitulo) => {
+  if (!nombreArchivo) return `Episodio ${numCapitulo}`;
+  const sinExt = nombreArchivo.replace(/\.[^/.]+$/, "");
+  // Busca patrones como S01E01 o 1x01
+  const match = sinExt.match(/([sS]\d{1,2}[eE]\d{1,2}|\d{1,2}x\d{1,2})/);
+  if (match) {
+    // Toma lo que hay después del patrón (ej: despues de S01E01)
+    const resto = sinExt.substring(match.index + match[0].length);
+    const limpio = resto.replace(/^[._\-\s]+/, "").replace(/_/g, " ").trim();
+    if (limpio) return limpio;
+  }
+  return `Episodio ${numCapitulo}`;
+};
+
+const obtenerDuracionCapitulo = (cap, item) => {
+  if (cap.duracion) return `${cap.duracion} min`;
+  
+  // Fallback: Promedio de la serie o runtime general
+  let duracion = item.duracion_promedio || item.runtime;
+  if (Array.isArray(duracion)) duracion = duracion[0];
+  
+  if (duracion) return `${duracion} min`;
+  return null;
+};
+
 const PLATAFORMAS = [
   { id: 'Netflix', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Netflix_icon.svg' },
   { id: 'Disney', logo: 'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/5EGT4P4UKRGAZPDR52FKJJW4YU.png' },
@@ -38,7 +63,7 @@ const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [infoUsuario, setInfoUsuario] = useState(null); 
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [email, setEmail] = useState('admin@neveus.lat');
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('Fm5Lcj%Va%kJwr');
   const [errorLogin, setErrorLogin] = useState('');
   
@@ -149,36 +174,67 @@ const Catalogo = () => {
   }, [verPeliculaCompleta]);
 
   // --- AUTH ---
-  useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUsuario(user);
-      if (user) {
+  const fetchUserInfo = async (user) => {
+      if (user && user.id) { // Asumimos que el objeto de usuario tiene un 'id'
         try {
-            const docRef = doc(db, "usuarios", user.uid);
+            const docRef = doc(db, "usuarios", user.id);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 setInfoUsuario(docSnap.data());
             }
         } catch (e) { console.error("Error info usuario", e); }
       }
+  };
+
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('usuario_sesion');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        setUsuario(user);
+        fetchUserInfo(user);
+      }
+    } catch (e) {
+      console.error("Error al cargar sesión", e);
+    }
       setLoadingAuth(false);
-    });
-    return () => unsubscribe();
+
+    // Asegurar que el dispositivo tenga un ID único y persistente
+    let deviceId = localStorage.getItem('device_id');
+    if (!deviceId) {
+        try {
+            deviceId = crypto.randomUUID();
+        } catch (e) {
+            deviceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+        localStorage.setItem('device_id', deviceId);
+    }
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault(); setErrorLogin('');
-    const auth = getAuth();
-    try { await signInWithEmailAndPassword(auth, email, password); } 
-    catch (error) { 
-      if (email === 'admin@neveus.lat') {
-        try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          return;
-        } catch (e) {}
-      }
-      setErrorLogin("Error de credenciales"); 
+    e.preventDefault();
+    setErrorLogin('');
+    const emailForApi = username.includes('@') ? username : `${username}@neveus.lat`;
+
+    try {
+        const deviceId = localStorage.getItem('device_id');
+        const res = await axios.post(`${URL_SERVIDOR}/auth.php`, {
+            action: 'login',
+            email: emailForApi,
+            password: password,
+            deviceId: deviceId // Enviar ID del dispositivo
+        });
+
+        if (res.data.success && res.data.user) {
+            const user = res.data.user;
+            setUsuario(user);
+            localStorage.setItem('usuario_sesion', JSON.stringify(user));
+            fetchUserInfo(user);
+        } else {
+            setErrorLogin(res.data.message || "Error de credenciales.");
+        }
+    } catch (error) {
+        setErrorLogin("Error de conexión o credenciales inválidas.");
     }
   };
 
@@ -263,9 +319,25 @@ const Catalogo = () => {
     }
   }, [favoritos, miLista]);
 
-  const handleCerrarSesion = () => {
-    const auth = getAuth();
-    auth.signOut();
+  const handleCerrarSesion = async () => {
+    const deviceId = localStorage.getItem('device_id');
+    const userId = usuario?.id;
+
+    if (userId && deviceId) {
+        try {
+            // Notificar al servidor que este dispositivo está cerrando sesión
+            await axios.post(`${URL_SERVIDOR}/auth.php`, {
+                action: 'logout',
+                userId: userId,
+                deviceId: deviceId
+            });
+        } catch (error) {
+            console.error("Error al notificar cierre de sesión al servidor:", error);
+        }
+    }
+
+    setUsuario(null);
+    localStorage.removeItem('usuario_sesion');
     setMenuAbierto(false);
   };
 
@@ -323,7 +395,7 @@ const Catalogo = () => {
       <div className="login-container">
         <form onSubmit={handleLogin} className="login-form">
           <img src="/logo.png" alt="Logo" className="login-logo"/>
-          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/>
+          <input type="text" placeholder="Usuario" value={username} onChange={e=>setUsername(e.target.value)} autoFocus/>
           <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>
           {errorLogin && <p className="error">{errorLogin}</p>}
           <button type="submit">Ingresar</button>
@@ -406,7 +478,7 @@ const Catalogo = () => {
         {tipoContenido === 'cuenta' && (
           <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
               <h2>Mi Cuenta</h2>
-              <p>{usuario?.email}</p>
+              <p>{usuario?.email?.replace('@neveus.lat', '') || 'Usuario'}</p>
               <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
                   <p style={{ color: '#4ade80' }}>SUSCRIPCIÓN ACTIVA</p>
                   {infoUsuario?.fecha_vencimiento && <p>Vence: {new Date(infoUsuario.fecha_vencimiento).toLocaleDateString()}</p>}
@@ -587,9 +659,14 @@ const Catalogo = () => {
                                       {/* INFO */}
                                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                           <h4 style={{ margin: 0, fontSize: '14px', color: 'white', fontWeight: 'bold' }}>
-                                              {cap.capitulo}. {cap.nombre_archivo ? cap.nombre_archivo.replace(/\.[^/.]+$/, "").replace(/_/g, " ") : `Episodio ${cap.capitulo}`}
+                                              {cap.capitulo}. {limpiarNombreCapitulo(cap.nombre_archivo, cap.capitulo)}
                                           </h4>
-                                          <span style={{ fontSize: '12px', color: '#999' }}>{item.duracion_promedio || '45m'}</span>
+                                          {obtenerDuracionCapitulo(cap, item) && (
+                                            <span style={{ fontSize: '12px', color: '#999' }}>{obtenerDuracionCapitulo(cap, item)}</span>
+                                          )}
+                                          {(cap.descripcion || cap.overview) && (
+                                              <p style={{ fontSize: '12px', color: '#aaa', margin: '4px 0 0 0', lineHeight: '1.3' }}>{cortarTexto(cap.descripcion || cap.overview, 130)}</p>
+                                          )}
                                       </div>
                                   </div>
                               ))
