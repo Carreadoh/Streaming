@@ -61,7 +61,6 @@ const PLATAFORMAS = [
 
 const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
-  const [infoUsuario, setInfoUsuario] = useState(null); 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -174,25 +173,12 @@ const Catalogo = () => {
   }, [verPeliculaCompleta]);
 
   // --- AUTH ---
-  const fetchUserInfo = async (user) => {
-      if (user && user.id) { // Asumimos que el objeto de usuario tiene un 'id'
-        try {
-            const docRef = doc(db, "usuarios", user.id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setInfoUsuario(docSnap.data());
-            }
-        } catch (e) { console.error("Error info usuario", e); }
-      }
-  };
-
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem('usuario_sesion');
       if (savedUser) {
         const user = JSON.parse(savedUser);
         setUsuario(user);
-        fetchUserInfo(user);
       }
     } catch (e) {
       console.error("Error al cargar sesión", e);
@@ -229,7 +215,6 @@ const Catalogo = () => {
             const user = res.data.user;
             setUsuario(user);
             localStorage.setItem('usuario_sesion', JSON.stringify(user));
-            fetchUserInfo(user);
         } else {
             setErrorLogin(res.data.message || "Error de credenciales.");
         }
@@ -478,10 +463,24 @@ const Catalogo = () => {
         {tipoContenido === 'cuenta' && (
           <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
               <h2>Mi Cuenta</h2>
-              <p>{usuario?.email?.replace('@neveus.lat', '') || 'Usuario'}</p>
-              <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
-                  <p style={{ color: '#4ade80' }}>SUSCRIPCIÓN ACTIVA</p>
-                  {infoUsuario?.fecha_vencimiento && <p>Vence: {new Date(infoUsuario.fecha_vencimiento).toLocaleDateString()}</p>}
+              <p style={{color: '#aaa', marginBottom: '30px'}}>{usuario?.email?.replace('@neveus.lat', '') || 'Usuario'}</p>
+              <div style={{ backgroundColor: '#111', padding: '20px 30px', borderRadius: '10px', marginTop: '20px', maxWidth: '400px', margin: '20px auto' }}>
+                  <p style={{ color: '#4ade80', fontWeight: 'bold', marginBottom: '25px', fontSize: '1.1rem', borderBottom: '1px solid #222', paddingBottom: '20px' }}>SUSCRIPCIÓN ACTIVA</p>
+                  
+                  <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <div>
+                          <span style={{ color: '#aaa', display: 'block', fontSize: '14px', marginBottom: '5px' }}>Vencimiento</span>
+                          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              {usuario?.fecha_vencimiento ? new Date(usuario.fecha_vencimiento).toLocaleString() : 'No disponible'}
+                          </span>
+                      </div>
+                      <div>
+                          <span style={{ color: '#aaa', display: 'block', fontSize: '14px', marginBottom: '5px' }}>Dispositivos en uso</span>
+                          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              {Array.isArray(usuario?.active_devices) ? usuario.active_devices.length : 0} / {usuario?.limite_dispositivos || 1}
+                          </span>
+                      </div>
+                  </div>
               </div>
           </div>
         )}
