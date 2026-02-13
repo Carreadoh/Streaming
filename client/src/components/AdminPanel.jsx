@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase'; // Asegúrate que tu firebase.js exporte 'app' también si es necesario, o usa getApp
-import { collection, getDocs, deleteDoc, doc, setDoc, query, where, updateDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
+import { db } from '../firebase';
+import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app"; 
 import axios from 'axios';
 import './AdminPanel.css';
 
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const EMAIL_PERMITIDO = "admin@neveus.lat"; 
 
+// Configuración para crear usuarios sin cerrar sesión (si fuera necesario)
 const firebaseConfig = {
   apiKey: "AIzaSyA1_Hd2K0xrkDc5ZZht-2WxTVE1hyWu04E",
   authDomain: "cuevanarg.firebaseapp.com",
@@ -18,13 +18,15 @@ const firebaseConfig = {
   appId: "1:149062152720:web:b25b096345629e7b4e5095"
 };
 
-const AdminPanel = () => {
-  const [adminUser, setAdminUser] = useState(null);
-  const [emailLogin, setEmailLogin] = useState('admin@neveus.lat');
-  const [passwordLogin, setPasswordLogin] = useState('Fm5Lcj%Va%kJwr');
-  const [errorLogin, setErrorLogin] = useState('');
-  const [vista, setVista] = useState('dashboard');
+const AdminPanel = ({ onVolver }) => {
+  // --- ESTADO DE AUTENTICACIÓN LOCAL ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
+  // --- ESTADOS DEL DASHBOARD ---
+  const [vista, setVista] = useState('dashboard');
   const [stats, setStats] = useState({ peliculas: 0, series: 0, usuarios: 0 });
   const [contenido, setContenido] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -39,36 +41,26 @@ const AdminPanel = () => {
   const [mesesSuscripcion, setMesesSuscripcion] = useState(1);
   const [msgUsuario, setMsgUsuario] = useState('');
 
-  const auth = getAuth();
+  // Credenciales quemadas
+  const ADMIN_USER = 'admin';
+  const ADMIN_PASS = '1234';
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === EMAIL_PERMITIDO) {
-        setAdminUser(user);
-        cargarTodo(); 
-      } else {
-        setAdminUser(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleAdminLogin = async (e) => {
+  // --- LOGIN LOCAL ---
+  const handleLogin = (e) => {
     e.preventDefault();
-    setErrorLogin('');
-    try {
-      if (emailLogin !== EMAIL_PERMITIDO) throw new Error("Acceso denegado");
-      await signInWithEmailAndPassword(auth, emailLogin, passwordLogin);
-    } catch (error) {
-      // AUTO-CREACIÓN: Si es el admin y no existe, lo creamos ahora mismo
-      if (emailLogin === EMAIL_PERMITIDO) {
-        try {
-          await createUserWithEmailAndPassword(auth, emailLogin, passwordLogin);
-          return; // Éxito, se loguea automáticamente
-        } catch (e) {}
-      }
-      setErrorLogin("Credenciales incorrectas o no autorizadas.");
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+      setIsAuthenticated(true);
+      setError('');
+      cargarTodo();
+    } else {
+      setError('Credenciales incorrectas');
     }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUsername('');
+    setPassword('');
   };
 
   const cargarTodo = async () => {
@@ -132,7 +124,9 @@ const AdminPanel = () => {
         fecha_estreno: data.release_date || data.first_air_date,
         tipo: tipoAgregado,
         plataforma_origen: "Agregado Manual",
-        generos: generos
+        generos: generos,
+        video_url: '', 
+        trailer_key: '' 
       });
 
       setMensaje(`✅ Importado: ${data.title || data.name}`);
@@ -145,10 +139,16 @@ const AdminPanel = () => {
     e.preventDefault();
     setMsgUsuario("⏳ Creando usuario...");
 
-    const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
-    const secondaryAuth = getAuth(secondaryApp);
+    // Usamos una app secundaria para no desloguear al admin (aunque sea local, evita conflictos con el Auth global)
+    let secondaryApp;
+    try {
+        secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+    } catch(e) {
+        // Si ya existe, ignoramos
+    }
 
     try {
+      const secondaryAuth = getAuth(secondaryApp);
       // 1. Crear en Authentication
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUserEmail, newUserPass);
       const user = userCredential.user;
@@ -193,21 +193,42 @@ const AdminPanel = () => {
     return contenido; // Dashboard muestra mezcla
   };
 
-  if (!adminUser) {
+  // --- RENDER: LOGIN ---
+  if (!isAuthenticated) {
     return (
       <div className="login-dashboard-bg">
         <div className="login-card">
-          {/* LOGO PNG AQUÍ */}
-          <div style={{marginBottom: '20px'}}>
+          <div style={{marginBottom: '20px', textAlign: 'center'}}>
              <img src="/logo.png" alt="Logo" style={{height: '80px', objectFit:'contain'}} />
           </div>
-          <h2 style={{color:'white', marginBottom:'10px'}}>Admin Portal</h2>
+          <h2 style={{color:'white', marginBottom:'20px', textAlign: 'center'}}>Admin Panel</h2>
           
-          <form onSubmit={handleAdminLogin} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-            <input className="input-dark" type="email" placeholder="Email Admin" value={emailLogin} onChange={e=>setEmailLogin(e.target.value)}/>
-            <input className="input-dark" type="password" placeholder="Contraseña" value={passwordLogin} onChange={e=>setPasswordLogin(e.target.value)}/>
+          <form onSubmit={handleLogin} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+            <input 
+                className="input-dark" 
+                type="text" 
+                placeholder="Usuario" 
+                value={username} 
+                onChange={e=>setUsername(e.target.value)}
+            />
+            <input 
+                className="input-dark" 
+                type="password" 
+                placeholder="Contraseña" 
+                value={passwordLogin} 
+                onChange={e=>setPassword(e.target.value)}
+            />
             <button className="btn-primary" type="submit">Entrar</button>
-            {errorLogin && <p style={{color:'#ef4444', fontSize:'13px'}}>{errorLogin}</p>}
+            
+            {error && <p style={{color:'#ef4444', fontSize:'13px', textAlign: 'center'}}>{error}</p>}
+            
+            <button 
+                type="button" 
+                onClick={onVolver}
+                style={{background: 'transparent', border: 'none', color: '#999', cursor: 'pointer', marginTop: '10px', textDecoration: 'underline'}}
+            >
+                Volver a la App
+            </button>
           </form>
         </div>
       </div>
@@ -227,7 +248,7 @@ const AdminPanel = () => {
           <button className={`nav-item ${vista==='peliculas'?'active':''}`} onClick={()=>setVista('peliculas')}><span>🎬</span> Películas</button>
           <button className={`nav-item ${vista==='series'?'active':''}`} onClick={()=>setVista('series')}><span>📺</span> Series</button>
           <button className={`nav-item ${vista==='usuarios'?'active':''}`} onClick={()=>setVista('usuarios')}><span>👥</span> Usuarios</button>
-          <button className="nav-item logout" onClick={() => signOut(auth)}><span>🚪</span> Salir</button>
+          <button className="nav-item logout" onClick={handleLogout}><span>🚪</span> Salir</button>
         </nav>
       </aside>
 
@@ -237,6 +258,9 @@ const AdminPanel = () => {
           <div className="page-title">
             <h1>{vista.charAt(0).toUpperCase() + vista.slice(1)}</h1>
           </div>
+          <button onClick={onVolver} style={{background: '#333', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer'}}>
+            Ir a la App
+          </button>
         </header>
 
         {/* VISTA: USUARIOS */}

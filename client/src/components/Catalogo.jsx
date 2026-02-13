@@ -6,6 +6,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { ScreenOrientation } from '@capacitor/screen-orientation'; 
 import Fila from './Fila';
 import VideoPlayer from './VideoPlayer';
+import AdminPanel from './AdminPanel';
 import '../App.css'; 
 
 const URL_SERVIDOR = 'https://cine.neveus.lat';
@@ -396,7 +397,7 @@ const Catalogo = () => {
       )}
 
       {/* CONTENIDO */}
-      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(115px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
+      <div className="filas-contenido" style={{ paddingTop: (tipoContenido === 'buscador' || tipoContenido === 'admin') ? '0' : 'calc(115px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
         
         {tipoContenido === 'cuenta' && (
           <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
@@ -431,7 +432,11 @@ const Catalogo = () => {
           </div>
         )}
 
-        {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && (
+        {tipoContenido === 'admin' && (
+            <AdminPanel onVolver={() => handleCambiarTipo('todo')} />
+        )}
+
+        {tipoContenido !== 'buscador' && tipoContenido !== 'cuenta' && tipoContenido !== 'admin' && (
             <>
               {tipoContenido !== 'favoritos' && tipoContenido !== 'milista' && (
                 <div className="filtros-container">
