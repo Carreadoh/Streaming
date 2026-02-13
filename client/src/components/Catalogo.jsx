@@ -84,6 +84,16 @@ const Catalogo = () => {
     if (item) setIsMuted(false);
   }, [item, verPeliculaCompleta, menuAbierto]);
 
+  // --- BLOQUEAR SCROLL BODY ---
+  useEffect(() => {
+    if (item || menuAbierto) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [item, menuAbierto]);
+
   // --- BOTÓN ATRÁS (HARDWARE) ---
   useEffect(() => {
     let backListener;
@@ -472,7 +482,7 @@ const Catalogo = () => {
                         />
                     </div>
                     <button onClick={toggleMuteTrailer} style={{ position: 'absolute', bottom: '15px', right: '15px', zIndex: 20, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        <img src={isMuted ? "/assets/icon-sonido-off.svg" : "/assets/icon-sonido-on.svg"} alt="Volumen" style={{ width: '20px', height: '20px', filter: 'invert(1)' }} />
+                        <img src={isMuted ? "/assets/icon-sonido-off.svg" : "/assets/icon-sonido-on.svg"} alt="Volumen" style={{ width: '20px', height: '20px', filter: 'invert(0)' }} />
                     </button>
                 </>
               ) : (
