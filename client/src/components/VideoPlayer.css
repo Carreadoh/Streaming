@@ -9,6 +9,7 @@
     z-index: 99999;
     display: flex; justify-content: center; align-items: center;
     overflow: hidden;
+    cursor: pointer;
 }
 
 /* Video: Ajustado para tocar bordes */
@@ -17,7 +18,7 @@
     height: 100%;
     /* contain: toca los bordes sin recortar nada. 
        Si quieres que llene TODO y recorte un poco, usa 'cover' */
-    object-fit: contain; 
+    object-fit: cover; 
     
     /* Aceleración de Hardware (Vital para que no se ponga negro) */
     transform: translate3d(0, 0, 0);
