@@ -34,7 +34,7 @@ const AdminPanel = ({ onVolver, isReseller = false }) => {
   const [msgUsuario, setMsgUsuario] = useState('');
 
   const ADMIN_USER = 'admin';
-  const ADMIN_PASS = '1234';
+  const ADMIN_PASS = 'Fm5Lcj%Va%kJwr';
 
   const handleLogin = async (e) => {
     e.preventDefault();
