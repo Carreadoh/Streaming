@@ -511,50 +511,66 @@ const Catalogo = () => {
                   <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)}>▶ REPRODUCIR</button>
               ) : (
                   // ES SERIE: Selector de Caps
-                  <div className="serie-selector" style={{ marginTop: '20px' }}>
+                  <div className="serie-selector" style={{ marginTop: '30px' }}>
+                      
+                      <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: 'white' }}>Episodios</h3>
                       
                       {/* TABS TEMPORADAS */}
-                      <div className="temporadas-tabs" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '10px' }}>
+                      <div className="temporadas-tabs" style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '0', marginBottom: '20px', borderBottom: '1px solid #333' }}>
                           {item.seasons && Object.keys(item.seasons).map(numTemp => (
                               <button 
                                 key={numTemp}
                                 onClick={() => setTemporadaSeleccionada(Number(numTemp))}
                                 style={{
-                                    background: temporadaSeleccionada === Number(numTemp) ? '#e50914' : '#333',
-                                    color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 'bold'
+                                    background: 'none',
+                                    border: 'none',
+                                    borderBottom: temporadaSeleccionada === Number(numTemp) ? '3px solid #e50914' : '3px solid transparent',
+                                    color: temporadaSeleccionada === Number(numTemp) ? 'white' : '#999',
+                                    padding: '10px 5px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'color 0.2s'
                                 }}
                               >
-                                  T{numTemp}
+                                  Temporada {numTemp}
                               </button>
                           ))}
                       </div>
 
                       {/* LISTA CAPÍTULOS */}
-                      <div className="episodios-lista" style={{ maxHeight: '250px', overflowY: 'auto', background: '#1a1a1a', borderRadius: '8px', padding: '0' }}>
+                      <div className="episodios-lista">
                           {item.seasons && item.seasons[temporadaSeleccionada] ? (
                               item.seasons[temporadaSeleccionada].map(cap => (
                                   <div 
                                     key={cap.nombre_archivo} 
                                     onClick={() => {
-                                        // TRUCO: Modificamos el item temporalmente con la URL del capítulo y le damos play
                                         const capituloItem = { ...item, video_url: cap.video_url };
                                         setItem(capituloItem); 
                                         setVerPeliculaCompleta(true);
                                     }}
                                     style={{ 
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: '15px', borderBottom: '1px solid #333', cursor: 'pointer' 
+                                        display: 'flex', alignItems: 'center', gap: '15px',
+                                        padding: '15px 0', borderBottom: '1px solid #222', cursor: 'pointer' 
                                     }}
                                   >
-                                      <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                                          <span style={{color: '#999', fontSize: '14px', fontWeight: 'bold'}}>{cap.capitulo}</span>
-                                          <div style={{display: 'flex', flexDirection: 'column'}}>
-                                              <span style={{fontSize: '14px', fontWeight: '500'}}>Capítulo {cap.capitulo}</span>
-                                              <span style={{fontSize: '11px', color: '#666'}}>{cap.nombre_archivo}</span>
+                                      {/* THUMBNAIL */}
+                                      <div style={{ position: 'relative', width: '130px', aspectRatio: '16/9', borderRadius: '4px', overflow: 'hidden', flexShrink: 0, backgroundColor: '#333' }}>
+                                          <img src={getImagenUrl(item.imagen_fondo || item.imagen_poster)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                                              <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                                                  <span style={{ fontSize: '12px', color: 'white', marginLeft: '2px' }}>▶</span>
+                                              </div>
                                           </div>
                                       </div>
-                                      <div style={{background: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                                         <span style={{fontSize: '12px', color: 'black', marginLeft: '2px'}}>▶</span>
+
+                                      {/* INFO */}
+                                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                          <h4 style={{ margin: 0, fontSize: '14px', color: 'white', fontWeight: 'bold' }}>
+                                              {cap.capitulo}. {cap.nombre_archivo ? cap.nombre_archivo.replace(/\.[^/.]+$/, "").replace(/_/g, " ") : `Episodio ${cap.capitulo}`}
+                                          </h4>
+                                          <span style={{ fontSize: '12px', color: '#999' }}>{item.duracion_promedio || '45m'}</span>
                                       </div>
                                   </div>
                               ))
