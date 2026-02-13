@@ -1,41 +1,47 @@
-const fs = require('fs-extra');
-const path = require('path');
-const axios = require('axios');
+import fs from 'fs-extra';
+import path from 'path';
+import axios from 'axios';
+import { fileURLToPath } from 'url';
 
-// --- CONFIGURACIÓN ---
-const DIRECTORIO_VIDEOS = './peliculas'; // CAMBIA ESTO a la ruta de tus videos (ej: 'D:/Peliculas')
+const DIRECTORIO_VIDEOS = 'D:/Sistemas/Streaming/peliculas'; 
+
 const TMDB_API_KEY = '7e0bf7d772854c500812f0348782872c';
-const EXTENSIONES = ['.mp4', '.mkv', '.avi', '.m3u8', '.mov'];
+const EXTENSIONES = ['.mp4', '.mkv', '.avi', '.mov', '.m3u8'];
 
-// Delay para evitar ban de API (500ms entre archivos)
+// --- SETUP INICIAL ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Delay para evitar ban de API
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const limpiarNombre = (nombreArchivo) => {
-  // Quita extension, puntos, guiones bajos y años entre parentesis para buscar limpio
-  let nombre = nombreArchivo.replace(/\.[^/.]+$/, ""); // Quitar extensión
-  nombre = nombre.replace(/[._]/g, " "); // Puntos y guiones a espacios
-  nombre = nombre.replace(/\(\d{4}\)/g, ""); // Quitar años (2024)
+  let nombre = nombreArchivo.replace(/\.[^/.]+$/, ""); 
+  nombre = nombre.replace(/[._]/g, " "); 
+  nombre = nombre.replace(/\(\d{4}\)/g, ""); 
+  // Limpieza agresiva de tags de torrents
+  nombre = nombre.replace(/1080p|720p|4k|x264|x265|bluray|web-dl|hdr|h264|h265|aac|5.1/gi, ""); 
   return nombre.trim();
 };
 
 const buscarEnTMDB = async (nombreArchivo) => {
   const query = limpiarNombre(nombreArchivo);
+  if (!query) return null;
+
   try {
     const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=es-MX`;
     const res = await axios.get(url);
     
     if (res.data.results && res.data.results.length > 0) {
-      // Devolvemos la mejor coincidencia
       return res.data.results[0]; 
     }
     return null;
   } catch (error) {
     if (error.response && error.response.status === 429) {
-      console.error("⚠️ RATE LIMIT: TMDB nos pausó. Esperando 5 segundos...");
+      console.log("⚠️ TMDB pide calma (Rate Limit). Esperando 5 seg...");
       await delay(5000);
-      return buscarEnTMDB(nombreArchivo); // Reintentar
+      return buscarEnTMDB(nombreArchivo); 
     }
-    console.error(`❌ Error buscando "${query}":`, error.message);
     return null;
   }
 };
@@ -44,81 +50,84 @@ const procesarArchivos = async () => {
   console.log(`📂 Escaneando directorio: ${DIRECTORIO_VIDEOS}`);
   
   try {
+    if (!fs.existsSync(DIRECTORIO_VIDEOS)) {
+        console.error(`❌ Error FATAL: La carpeta no existe en: ${DIRECTORIO_VIDEOS}`);
+        console.error(`   Asegurate de editar la constante DIRECTORIO_VIDEOS en el script.`);
+        return;
+    }
+
     const items = await fs.readdir(DIRECTORIO_VIDEOS);
 
-    // 1. PRIMERO: SACAR ARCHIVOS DE CARPETAS VACÍAS O MAL NOMBRADAS (APLANAR)
-    // Esto arregla el problema de las "carpetas vacías" o mal generadas
-    console.log("--- 🧹 Fase 1: Rescatando archivos perdidos ---");
+    console.log("--- 🧹 Fase 1: Rescatando archivos de carpetas viejas ---");
     for (const item of items) {
         const rutaCompleta = path.join(DIRECTORIO_VIDEOS, item);
         const stats = await fs.stat(rutaCompleta);
 
         if (stats.isDirectory()) {
-            const contenidoCarpeta = await fs.readdir(rutaCompleta);
-            if (contenidoCarpeta.length === 0) {
-                console.log(`🗑️ Borrando carpeta vacía: ${item}`);
-                await fs.rmdir(rutaCompleta);
+            const contenido = await fs.readdir(rutaCompleta);
+            if (contenido.length === 0) {
+                await fs.rmdir(rutaCompleta); // Borrar vacía
             } else {
-                // Si hay archivos adentro, sácalos a la raíz para reprocesarlos bien
-                for (const subItem of contenidoCarpeta) {
+                // Sacar archivos a la raíz
+                for (const subItem of contenido) {
                     const rutaSub = path.join(rutaCompleta, subItem);
                     const destinoRaiz = path.join(DIRECTORIO_VIDEOS, subItem);
-                    if (EXTENSIONES.includes(path.extname(subItem).toLowerCase())) {
-                        console.log(`⬆️ Sacando archivo: ${subItem}`);
+                    
+                    // Si es video, subtitulo o nfo, moverlo
+                    if (EXTENSIONES.includes(path.extname(subItem).toLowerCase()) || subItem.endsWith('.srt') || subItem.endsWith('.nfo')) {
+                        console.log(`⬆️ Rescatando: ${subItem}`);
                         await fs.move(rutaSub, destinoRaiz, { overwrite: true });
                     }
                 }
-                // Intentar borrar carpeta (si quedó vacía)
+                // Intentar borrar carpeta (ahora vacía)
                 try { await fs.rmdir(rutaCompleta); } catch(e) {} 
             }
         }
     }
 
-    // 2. SEGUNDO: PROCESAR TODO BIEN
-    console.log("\n--- 🎬 Fase 2: Organizando Biblioteca (Modo Lento y Seguro) ---");
+    console.log("\n--- 🎬 Fase 2: Organizando Biblioteca ---");
+    // Volver a leer el directorio ya "aplanado"
     const archivosRaiz = await fs.readdir(DIRECTORIO_VIDEOS);
     
     for (const archivo of archivosRaiz) {
       const ext = path.extname(archivo).toLowerCase();
+      // Ignorar lo que no sea video
       if (!EXTENSIONES.includes(ext)) continue;
 
       const rutaArchivo = path.join(DIRECTORIO_VIDEOS, archivo);
       
-      console.log(`🔍 Buscando datos para: ${archivo}`);
+      console.log(`🔍 Procesando: ${archivo}`);
       
       const datosTMDB = await buscarEnTMDB(archivo);
-      await delay(300); // Pausa vital para que TMDB no falle
+      await delay(300); // Pausa necesaria para la API
 
       let nombreCarpeta;
 
       if (datosTMDB) {
-        // FORMATO ESTÁNDAR: "Título (Año)"
         const year = datosTMDB.release_date ? datosTMDB.release_date.split('-')[0] : '????';
-        // Limpiamos caracteres ilegales para carpetas de Windows/Linux (: / \ etc)
-        const tituloSanitized = datosTMDB.title.replace(/[<>:"/\\|?*]/g, '');
-        nombreCarpeta = `${tituloSanitized} (${year})`;
+        const tituloLimpio = datosTMDB.title.replace(/[<>:"/\\|?*]/g, ''); 
+        nombreCarpeta = `${tituloLimpio} (${year})`;
       } else {
-        console.warn(`⚠️ No encontrado en TMDB: ${archivo}. Usando nombre original.`);
-        nombreCarpeta = `_DESCONOCIDO_${path.basename(archivo, ext)}`;
+        console.warn(`⚠️ No identificado: ${archivo} -> Se mueve a carpeta _MANUAL`);
+        nombreCarpeta = `_MANUAL_${path.basename(archivo, ext)}`;
       }
 
       const rutaCarpetaDestino = path.join(DIRECTORIO_VIDEOS, nombreCarpeta);
 
-      // Crear carpeta
+      // Crear carpeta destino
       await fs.ensureDir(rutaCarpetaDestino);
 
-      // Mover archivo y renombrar al estandar "Titulo.ext" o dejar nombre original
-      const rutaDestinoFinal = path.join(rutaCarpetaDestino, archivo); // Mantenemos nombre archivo, movemos a carpeta
+      // Mover video
+      const rutaDestinoFinal = path.join(rutaCarpetaDestino, archivo);
       
-      try {
+      // Evitar mover sobre sí mismo
+      if (rutaArchivo !== rutaDestinoFinal) {
           await fs.move(rutaArchivo, rutaDestinoFinal, { overwrite: true });
-          console.log(`✅ Movido: ${nombreCarpeta}`);
-      } catch (err) {
-          console.error(`🔥 Error moviendo ${archivo}: ${err.message}`);
+          console.log(`✅ Guardado en: ${nombreCarpeta}`);
       }
     }
 
-    console.log("\n✨ ¡Proceso terminado! Revisá la carpeta.");
+    console.log("\n✨ ¡Listo! Biblioteca reparada.");
 
   } catch (error) {
     console.error("Error fatal:", error);
