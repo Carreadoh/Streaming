@@ -60,6 +60,16 @@ const Catalogo = () => {
   const [favoritos, setFavoritos] = useState(() => JSON.parse(localStorage.getItem('favoritos')) || []);
   const [miLista, setMiLista] = useState(() => JSON.parse(localStorage.getItem('miLista')) || []);
 
+  const [temporadaSeleccionada, setTemporadaSeleccionada] = useState(1);
+  useEffect(() => {
+    if (item && item.tipo === 'serie' && item.seasons) {
+        const primeraTemp = Object.keys(item.seasons)[0];
+        setTemporadaSeleccionada(Number(primeraTemp));
+    } else {
+        setIsMuted(false);
+    }
+  }, [item]);
+
   const getImagenUrl = (path) => {
     if (!path) return 'https://via.placeholder.com/500x281?text=No+Image'; 
     if (path.startsWith('http')) return path; 
@@ -437,10 +447,12 @@ const Catalogo = () => {
         </div>
       )}
 
-      {/* MODAL DETALLE CON TRAILER */}
+      {/* MODAL DETALLE CON TRAILER Y SERIES */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
+            
+            {/* --- BANNER / TRAILER --- */}
             <div className="modal-banner" style={{ 
                  backgroundImage: !item.trailer_key ? `url(${getImagenUrl(item.imagen_poster)})` : 'none', 
                  backgroundColor: '#000',
@@ -448,63 +460,35 @@ const Catalogo = () => {
                  position: 'relative',
                  overflow: 'hidden'
             }}>
-              
-              {/* LÓGICA DEL TRAILER */}
               {item.trailer_key ? (
                 <>
-                    <div style={{
-                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                        pointerEvents: 'none' // Esto hace que no puedas hacer click en el video (pausar, ir a youtube, etc)
-                    }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                         <iframe
                         ref={iframeRef}
-                        style={{ 
-                            width: '100%', height: '100%', border: 'none',
-                            transform: 'scale(1.35)', // ZOOM PARA OCULTAR BORDES Y CONTROLES
-                            transformOrigin: 'center center'
-                        }}
-                        // enablejsapi=1 es vital para controlar el volumen
+                        style={{ width: '100%', height: '100%', border: 'none', transform: 'scale(1.35)', transformOrigin: 'center center' }}
                         src={`https://www.youtube.com/embed/${item.trailer_key}?autoplay=1&mute=0&enablejsapi=1&controls=0&loop=1&playlist=${item.trailer_key}&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0`}
                         title="Trailer"
                         allow="autoplay; encrypted-media"
-                        frameBorder="0"
                         />
                     </div>
-                    
-                    {/* BOTÓN SILENCIAR / DESILENCIAR */}
-                    <button 
-                        onClick={toggleMuteTrailer}
-                        style={{
-                            position: 'absolute', bottom: '15px', right: '15px', zIndex: 20,
-                            background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)',
-                            borderRadius: '50%', width: '40px', height: '40px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                        }}
-                    >
-                        {/* Usamos tus iconos de assets invirtiendo color para que sean blancos */}
-                        <img 
-                            src={isMuted ? "/assets/icon-sonido-off.svg" : "/assets/icon-sonido-on.svg"} 
-                            alt="Volumen" 
-                            style={{ width: '20px', height: '20px' }} 
-                        />
+                    <button onClick={toggleMuteTrailer} style={{ position: 'absolute', bottom: '15px', right: '15px', zIndex: 20, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <img src={isMuted ? "/assets/icon-sonido-off.svg" : "/assets/icon-sonido-on.svg"} alt="Volumen" style={{ width: '20px', height: '20px', filter: 'invert(1)' }} />
                     </button>
                 </>
               ) : (
                 <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
               )}
-
-              {/* Botón cerrar flotante extra por si el video tapa el otro */}
-              {item.trailer_key && (
-                  <button className="btn-cerrar" style={{zIndex: 30}} onClick={() => setItem(null)}>✕</button>
-              )}
+              {item.trailer_key && <button className="btn-cerrar" style={{zIndex: 30}} onClick={() => setItem(null)}>✕</button>}
             </div>
 
+            {/* --- INFO --- */}
             <div className="modal-info">
               <h2>{item.titulo}</h2>
               
               <div className="modal-meta" style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
                  {item.fecha_estreno && <span className="meta-tag" style={{background: '#333', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>{item.fecha_estreno.split('-')[0]}</span>}
                  {item.plataforma_origen && <span className="meta-tag" style={{background: '#333', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>{item.plataforma_origen}</span>}
+                 {item.tipo === 'serie' && <span className="meta-tag" style={{background: '#e50914', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>SERIE</span>}
               </div>
               
               <p style={{ color: '#bbb', fontSize: '14px', marginBottom: '15px' }}>{cortarTexto(item.sinopsis || item.descripcion)}</p>
@@ -521,7 +505,66 @@ const Catalogo = () => {
                 </button>
               </div>
               
-              <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)}>▶ REPRODUCIR</button>
+              {/* --- LÓGICA DE REPRODUCCIÓN: PELICULA vs SERIE --- */}
+              {item.tipo !== 'serie' ? (
+                  // ES PELÍCULA: Botón grande
+                  <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)}>▶ REPRODUCIR</button>
+              ) : (
+                  // ES SERIE: Selector de Caps
+                  <div className="serie-selector" style={{ marginTop: '20px' }}>
+                      
+                      {/* TABS TEMPORADAS */}
+                      <div className="temporadas-tabs" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '10px' }}>
+                          {item.seasons && Object.keys(item.seasons).map(numTemp => (
+                              <button 
+                                key={numTemp}
+                                onClick={() => setTemporadaSeleccionada(Number(numTemp))}
+                                style={{
+                                    background: temporadaSeleccionada === Number(numTemp) ? '#e50914' : '#333',
+                                    color: 'white', border: 'none', padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 'bold'
+                                }}
+                              >
+                                  T{numTemp}
+                              </button>
+                          ))}
+                      </div>
+
+                      {/* LISTA CAPÍTULOS */}
+                      <div className="episodios-lista" style={{ maxHeight: '250px', overflowY: 'auto', background: '#1a1a1a', borderRadius: '8px', padding: '0' }}>
+                          {item.seasons && item.seasons[temporadaSeleccionada] ? (
+                              item.seasons[temporadaSeleccionada].map(cap => (
+                                  <div 
+                                    key={cap.nombre_archivo} 
+                                    onClick={() => {
+                                        // TRUCO: Modificamos el item temporalmente con la URL del capítulo y le damos play
+                                        const capituloItem = { ...item, video_url: cap.video_url };
+                                        setItem(capituloItem); 
+                                        setVerPeliculaCompleta(true);
+                                    }}
+                                    style={{ 
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '15px', borderBottom: '1px solid #333', cursor: 'pointer' 
+                                    }}
+                                  >
+                                      <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                                          <span style={{color: '#999', fontSize: '14px', fontWeight: 'bold'}}>{cap.capitulo}</span>
+                                          <div style={{display: 'flex', flexDirection: 'column'}}>
+                                              <span style={{fontSize: '14px', fontWeight: '500'}}>Capítulo {cap.capitulo}</span>
+                                              <span style={{fontSize: '11px', color: '#666'}}>{cap.nombre_archivo}</span>
+                                          </div>
+                                      </div>
+                                      <div style={{background: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                                         <span style={{fontSize: '12px', color: 'black', marginLeft: '2px'}}>▶</span>
+                                      </div>
+                                  </div>
+                              ))
+                          ) : (
+                              <p style={{color: '#666', textAlign: 'center', padding: '20px'}}>No hay capítulos disponibles.</p>
+                          )}
+                      </div>
+                  </div>
+              )}
+
             </div>
           </div>
         </div>
