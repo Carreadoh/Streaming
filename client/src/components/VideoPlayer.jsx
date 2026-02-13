@@ -90,15 +90,29 @@ const VideoPlayer = ({ src, onClose }) => {
         video.muted = false;
         setMuted(false);
         video.volume = 1.0;
+        resetControlsTimer();
+        return;
     }
 
-    resetControlsTimer();
+    if (showControls) {
+      setShowControls(false);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    } else {
+      resetControlsTimer();
+    }
   };
 
   const togglePlay = (e) => {
     e.stopPropagation(); // Evita conflictos
-    handleMainAction();
     const video = videoRef.current;
+
+    if (muted) {
+      video.muted = false;
+      setMuted(false);
+      video.volume = 1.0;
+    }
+    resetControlsTimer();
+
     if (video.paused) {
       video.play();
       setPlaying(true);
