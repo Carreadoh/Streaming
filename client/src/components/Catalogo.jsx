@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore'; // Solo dejamos lo necesario para info de usuario
+import { doc, getDoc } from 'firebase/firestore'; 
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, createUserWithEmailAndPassword } from "firebase/auth";
 import { App as CapacitorApp } from '@capacitor/app'; 
 import { ScreenOrientation } from '@capacitor/screen-orientation'; 
@@ -10,10 +10,17 @@ import '../App.css';
 
 const URL_SERVIDOR = 'https://cine.neveus.lat';
 
+// --- UTILIDADES ---
 const normalizarTexto = (texto) => {
   return texto 
     ? String(texto).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() 
     : "";
+};
+
+const cortarTexto = (texto, limite = 150) => {
+  if (!texto) return "Sin descripción.";
+  if (texto.length <= limite) return texto;
+  return texto.substring(0, limite) + "...";
 };
 
 const PLATAFORMAS = [
@@ -46,22 +53,28 @@ const Catalogo = () => {
   const btnReproducirRef = useRef(null); 
   const inputBusquedaRef = useRef(null);
 
+  // --- REFERENCIAS Y ESTADOS PARA EL TRAILER ---
+  const iframeRef = useRef(null); // Referencia al iframe de youtube
+  const [isMuted, setIsMuted] = useState(false); // Estado del sonido (false = con sonido)
+
   const [favoritos, setFavoritos] = useState(() => JSON.parse(localStorage.getItem('favoritos')) || []);
   const [miLista, setMiLista] = useState(() => JSON.parse(localStorage.getItem('miLista')) || []);
 
   const getImagenUrl = (path) => {
     if (!path) return 'https://via.placeholder.com/500x281?text=No+Image'; 
     if (path.startsWith('http')) return path; 
-    return path; // El script ahora nos da la URL completa de TMDB
+    return path; 
   };
 
   const stateRef = useRef({ item, verPeliculaCompleta, menuAbierto });
   
   useEffect(() => {
     stateRef.current = { item, verPeliculaCompleta, menuAbierto };
+    // Cuando cambiamos de item, reseteamos el estado de silencio (queremos que arranque con sonido)
+    if (item) setIsMuted(false);
   }, [item, verPeliculaCompleta, menuAbierto]);
 
-  // --- BOTÓN ATRÁS ---
+  // --- BOTÓN ATRÁS (HARDWARE) ---
   useEffect(() => {
     let backListener;
     const setupAppListener = async () => {
@@ -71,6 +84,7 @@ const Catalogo = () => {
           if (verPeliculaCompleta) setVerPeliculaCompleta(false);
           else if (item) setItem(null);
           else if (menuAbierto) setMenuAbierto(false);
+          else if (tipoContenido === 'buscador') handleCambiarTipo('todo');
           else CapacitorApp.exitApp(); 
         });
       } catch (e) { console.log("Web mode"); }
@@ -93,7 +107,7 @@ const Catalogo = () => {
       if (backListener) backListener.remove();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [tipoContenido]);
 
   // --- ROTACIÓN ---
   useEffect(() => {
@@ -109,7 +123,7 @@ const Catalogo = () => {
     rotarPantalla();
   }, [verPeliculaCompleta]);
 
-  // --- AUTH & INFO (Firebase se queda para usuarios) ---
+  // --- AUTH ---
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -143,23 +157,32 @@ const Catalogo = () => {
     }
   };
 
-  // --- CARGA DESDE EL SERVIDOR (NUEVA LÓGICA) ---
+  // --- CARGA DESDE EL SERVIDOR ---
   useEffect(() => {
     if (!usuario) return;
     const cargar = async () => {
       try {
-        // Fetch al JSON generado por tu script PHP
         const response = await fetch(`${URL_SERVIDOR}/data.php`);
         const data = await response.json();
         
-        // El script ya nos da los objetos limpios
-        const items = data.map(p => ({
-            ...p,
-            uniqueKey: `p_${p.id}`,
-            // Si el script no envía tipo, asumimos movie por defecto
-            tipo: p.tipo || 'movie',
-            imagen_poster: p.poster // El script usa 'poster'
-        }));
+        const items = data.map(p => {
+            let rawGeneros = p.generos || p.genres || p.categoria || "Otros";
+            let arrayGeneros = Array.isArray(rawGeneros)
+                ? rawGeneros
+                : String(rawGeneros).split(',').map(g => g.trim());
+
+            arrayGeneros = arrayGeneros.filter(g => g && g !== "General");
+            if (arrayGeneros.length === 0) arrayGeneros = ["Otros"];
+
+            return {
+                ...p,
+                uniqueKey: `p_${p.id}`,
+                tipo: p.tipo || 'movie',
+                imagen_poster: p.poster,
+                generos: arrayGeneros,
+                trailer_key: p.trailer_key // Aseguramos que pase el trailer
+            };
+        });
 
         setTodosLosItems(items);
         filtrar(items, null, '', 'todo');
@@ -198,8 +221,7 @@ const Catalogo = () => {
       if (tipo === 'milista') { agrupado['Mi Lista'].push(p); return; }
       if (tipo === 'buscador') { agrupado['Resultados'].push(p); return; }
 
-      const generosUnicos = [...new Set(p.generos || ["General"])];
-      
+      const generosUnicos = [...new Set(p.generos)];
       generosUnicos.forEach(g => {
         if (!agrupado[g]) agrupado[g] = [];
         if (!agrupado[g].find(existing => existing.id === p.id)) {
@@ -236,10 +258,9 @@ const Catalogo = () => {
     setMenuAbierto(false);
   };
 
-  // --- URL DE VIDEO DIRECTA DEL JSON ---
   const obtenerUrlVideo = () => {
     if (!item) return '';
-    return item.video_url; // El script ya nos da la URL completa
+    return item.video_url; 
   };
 
   const toggleFavorito = (id) => {
@@ -252,6 +273,22 @@ const Catalogo = () => {
     const nuevos = miLista.includes(id) ? miLista.filter(lid => lid !== id) : [...miLista, id];
     setMiLista(nuevos);
     localStorage.setItem('miLista', JSON.stringify(nuevos));
+  };
+
+  // --- CONTROL DE VOLUMEN TRAILER ---
+  const toggleMuteTrailer = (e) => {
+    e.stopPropagation();
+    const nuevoEstado = !isMuted;
+    setIsMuted(nuevoEstado);
+    if (iframeRef.current) {
+        // Usamos postMessage para hablar con la API de YouTube
+        const comando = nuevoEstado ? 'mute' : 'unMute';
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: comando,
+            args: []
+        }), '*');
+    }
   };
 
   if (loadingAuth) return <div className="loading-container"><div className="loading-spinner"></div></div>;
@@ -303,13 +340,34 @@ const Catalogo = () => {
                   <button className="btn-cerrar-menu" onClick={() => setMenuAbierto(false)}>✕</button>
                 </div>
                 <nav className="menu-nav">
-                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>Inicio</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>Películas</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>Series</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>Favoritos</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>Mi Lista</button>
-                  <button className={`menu-item-btn ${tipoContenido === 'cuenta' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('cuenta')}>Cuenta</button>
-                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>Cerrar Sesión</button>
+                  <button className={`menu-item-btn ${tipoContenido === 'todo' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('todo')}>
+                    <img src="/assets/icon-inicio.svg" className="menu-icon-img" alt="Inicio" />
+                    Inicio
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'peliculas' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('peliculas')}>
+                    <img src="/assets/icon-peliculas.svg" className="menu-icon-img" alt="Películas" />
+                    Películas
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'series' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('series')}>
+                    <img src="/assets/icon-series.svg" className="menu-icon-img" alt="Series" />
+                    Series
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'favoritos' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('favoritos')}>
+                    <img src="/assets/icon-corazon.svg" className="menu-icon-img" alt="Favoritos" />
+                    Favoritos
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'milista' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('milista')}>
+                    <img src="/assets/icon-milista.svg" className="menu-icon-img" alt="Mi Lista" />
+                    Mi Lista
+                  </button>
+                  <button className={`menu-item-btn ${tipoContenido === 'cuenta' ? 'activo' : ''}`} onClick={() => handleCambiarTipo('cuenta')}>
+                    <img src="/assets/icon-cuenta.svg" className="menu-icon-img" alt="Cuenta" />
+                    Cuenta
+                  </button>
+                  <button className="menu-item-btn cerrar-sesion" onClick={handleCerrarSesion}>
+                    <img src="/assets/icon-cerrar.svg" className="menu-icon-img" alt="Cerrar" />
+                    Cerrar Sesión
+                  </button>
                 </nav>
               </div>
             </>
@@ -318,7 +376,7 @@ const Catalogo = () => {
       )}
 
       {/* CONTENIDO */}
-      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : '110px', backgroundColor: '#000' }}>
+      <div className="filas-contenido" style={{ paddingTop: tipoContenido === 'buscador' ? '0' : 'calc(115px + env(safe-area-inset-top))', backgroundColor: '#000' }}>
         
         {tipoContenido === 'cuenta' && (
           <div className="cuenta-screen" style={{ textAlign: 'center', padding: '50px 20px' }}>
@@ -333,10 +391,11 @@ const Catalogo = () => {
 
         {tipoContenido === 'buscador' && (
           <div className="search-screen">
-             <div className="search-header" style={{ display: 'flex', padding: '20px', gap: '15px' }}>
-               <button onClick={() => handleCambiarTipo('todo')} style={{ background: 'none', border: 'none' }}>
-                 <img src="/assets/icon-atras.svg" alt="Atrás" style={{ width: '28px', filter: 'invert(1)' }} />
+             <div className="search-header" style={{ display: 'flex', padding: '20px', gap: '15px', alignItems: 'center', paddingTop: 'env(safe-area-inset-top)' }}>
+               <button onClick={() => handleCambiarTipo('todo')} style={{ background: 'none', border: 'none', padding: '0', display: 'flex', alignItems: 'center' }}>
+                 <img src="/assets/icon-atras.svg" alt="Atrás" style={{ width: '28px', height: '28px' }} />
                </button>
+
                <input ref={inputBusquedaRef} type="text" placeholder="Buscar..." value={busqueda}
                  onChange={(e) => { setBusqueda(e.target.value); filtrar(todosLosItems, null, e.target.value, 'buscador'); }}
                  style={{ flex: 1, padding: '12px', borderRadius: '8px', background: '#222', color: 'white', border: 'none' }}
@@ -378,20 +437,90 @@ const Catalogo = () => {
         </div>
       )}
 
-      {/* MODAL DETALLE */}
+      {/* MODAL DETALLE CON TRAILER */}
       {item && !verPeliculaCompleta && (
         <div className="modal-overlay" onClick={() => setItem(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-banner" style={{ backgroundImage: `url(${getImagenUrl(item.imagen_poster)})` }}>
-              <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
+            <div className="modal-banner" style={{ 
+                 backgroundImage: !item.trailer_key ? `url(${getImagenUrl(item.imagen_poster)})` : 'none', 
+                 backgroundColor: '#000',
+                 aspectRatio: '16/9',
+                 position: 'relative',
+                 overflow: 'hidden'
+            }}>
+              
+              {/* LÓGICA DEL TRAILER */}
+              {item.trailer_key ? (
+                <>
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                        pointerEvents: 'none' // Esto hace que no puedas hacer click en el video (pausar, ir a youtube, etc)
+                    }}>
+                        <iframe
+                        ref={iframeRef}
+                        style={{ 
+                            width: '100%', height: '100%', border: 'none',
+                            transform: 'scale(1.35)', // ZOOM PARA OCULTAR BORDES Y CONTROLES
+                            transformOrigin: 'center center'
+                        }}
+                        // enablejsapi=1 es vital para controlar el volumen
+                        src={`https://www.youtube.com/embed/${item.trailer_key}?autoplay=1&mute=0&enablejsapi=1&controls=0&loop=1&playlist=${item.trailer_key}&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0`}
+                        title="Trailer"
+                        allow="autoplay; encrypted-media"
+                        frameBorder="0"
+                        />
+                    </div>
+                    
+                    {/* BOTÓN SILENCIAR / DESILENCIAR */}
+                    <button 
+                        onClick={toggleMuteTrailer}
+                        style={{
+                            position: 'absolute', bottom: '15px', right: '15px', zIndex: 20,
+                            background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '50%', width: '40px', height: '40px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                        }}
+                    >
+                        {/* Usamos tus iconos de assets invirtiendo color para que sean blancos */}
+                        <img 
+                            src={isMuted ? "/assets/icon-sonido-off.svg" : "/assets/icon-sonido-on.svg"} 
+                            alt="Volumen" 
+                            style={{ width: '20px', height: '20px' }} 
+                        />
+                    </button>
+                </>
+              ) : (
+                <button className="btn-cerrar" onClick={() => setItem(null)}>✕</button>
+              )}
+
+              {/* Botón cerrar flotante extra por si el video tapa el otro */}
+              {item.trailer_key && (
+                  <button className="btn-cerrar" style={{zIndex: 30}} onClick={() => setItem(null)}>✕</button>
+              )}
             </div>
+
             <div className="modal-info">
               <h2>{item.titulo}</h2>
-              <p>{item.sinopsis || item.descripcion}</p>
-              <div className="modal-actions">
-                <button className="action-btn" onClick={() => toggleFavorito(item.id)}>Favorito</button>
-                <button className="action-btn" onClick={() => toggleMiLista(item.id)}>Mi Lista</button>
+              
+              <div className="modal-meta" style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
+                 {item.fecha_estreno && <span className="meta-tag" style={{background: '#333', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>{item.fecha_estreno.split('-')[0]}</span>}
+                 {item.plataforma_origen && <span className="meta-tag" style={{background: '#333', padding: '2px 6px', borderRadius: '4px', fontSize: '12px'}}>{item.plataforma_origen}</span>}
               </div>
+              
+              <p style={{ color: '#bbb', fontSize: '14px', marginBottom: '15px' }}>{cortarTexto(item.sinopsis || item.descripcion)}</p>
+              
+              <div className="modal-actions">
+                <button className="action-btn" onClick={() => toggleFavorito(item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                  <img src={favoritos.includes(item.id) ? "/assets/icon-corazon-lleno.svg" : "/assets/icon-corazon.svg"} alt="Favorito" style={{ width: '24px', height: '24px' }} onError={(e) => {e.target.style.display='none'}} />
+                  <span>Favorito</span>
+                </button>
+
+                <button className="action-btn" onClick={() => toggleMiLista(item.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                  <img src={miLista.includes(item.id) ? "/assets/icon-check.svg" : "/assets/icon-milista.svg"} alt="Lista" style={{ width: '24px', height: '24px' }} onError={(e) => {e.target.style.display='none'}} />
+                  <span>Mi Lista</span>
+                </button>
+              </div>
+              
               <button ref={btnReproducirRef} className="btn-play-detalle" onClick={() => setVerPeliculaCompleta(true)}>▶ REPRODUCIR</button>
             </div>
           </div>

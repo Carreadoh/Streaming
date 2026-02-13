@@ -11,6 +11,8 @@ Coloca tus íconos PNG en esta carpeta `/public/assets/` con los siguientes nomb
 5. **icon-favoritos.png** - Ícono para "Mis Favoritos"
 6. **icon-milista.png** - Ícono para "Mi Lista"
 7. **icon-cerrar.png** - Ícono para "Cerrar Sesión"
+8. **icon-sonido-on.svg** - Ícono de sonido activado
+9. **icon-sonido-off.svg** - Ícono de sonido desactivado (mute)
 
 ## Especificaciones:
 

@@ -37,11 +37,19 @@
     cursor: pointer;
     
     /* Asegura que el dedo lo detecte bien */
-    pointer-events: auto; 
+    pointer-events: none; 
     -webkit-tap-highlight-color: transparent;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 .netflix-back-circle:active {
     background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Mostrar botón atrás solo cuando los controles son visibles */
+.netflix-container:has(.netflix-controls.visible) .netflix-back-circle {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* Aviso de Mute */
@@ -106,13 +114,20 @@
 
 /* Slider */
 .netflix-timeline { width: 100%; display: flex; align-items: center; }
+
+/* Estilos generales para inputs de rango (Timeline y Volumen) */
+.netflix-controls input[type=range] {
+    accent-color: #E50914;
+    cursor: pointer;
+}
+
 .netflix-timeline input[type=range] {
     -webkit-appearance: none; appearance: none;
     width: 100%; height: 4px; background: rgba(255,255,255,0.3);
     border-radius: 2px; outline: none;
     background-image: linear-gradient(#E50914, #E50914); background-repeat: no-repeat;
 }
-.netflix-timeline input[type=range]::-webkit-slider-thumb {
+.netflix-controls input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
     height: 18px; width: 18px; border-radius: 50%; background: #E50914;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
