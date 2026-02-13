@@ -63,8 +63,8 @@ const Catalogo = () => {
   const [usuario, setUsuario] = useState(null);
   const [infoUsuario, setInfoUsuario] = useState(null); 
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('Fm5Lcj%Va%kJwr');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
   
   const [todosLosItems, setTodosLosItems] = useState([]);
@@ -395,8 +395,8 @@ const Catalogo = () => {
       <div className="login-container">
         <form onSubmit={handleLogin} className="login-form">
           <img src="/logo.png" alt="Logo" className="login-logo"/>
-          <input type="text" placeholder="Usuario" value={username} onChange={e=>setUsername(e.target.value)} autoFocus/>
-          <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)}/>
+          <input type="text" placeholder="Usuario" value={username} onChange={e=>setUsername(e.target.value)} autoFocus autoComplete="off"/>
+          <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password"/>
           {errorLogin && <p className="error">{errorLogin}</p>}
           <button type="submit">Ingresar</button>
         </form>
